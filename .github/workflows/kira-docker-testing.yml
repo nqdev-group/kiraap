@@ -1,0 +1,29 @@
+name: KiraAP Build and Push Docker Testing
+
+on:
+  # push:
+  #   tags:
+  #     - "v*"
+  workflow_dispatch:
+
+env:
+  GHCR_IMAGE: ghcr.io/${{ github.repository_owner }}/kiraap
+  DOCKERHUB_IMAGE: ${{ secrets.DOCKER_USERNAME }}/kiraap
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image (no push)
+        uses: ./.github/actions/docker-build-push
+        with:
+          push: "false"
+          ghcr-image: ${{ env.GHCR_IMAGE }}
+          dockerhub-image: ${{ env.DOCKERHUB_IMAGE }}
+          cache-type: gha

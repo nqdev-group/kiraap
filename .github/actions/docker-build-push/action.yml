@@ -1,0 +1,99 @@
+name: "Build & optionally push KiraAP Docker image"
+description: >
+  Phần chung của kira-docker-publish.yml và kira-docker-testing.yml: setup buildx,
+  đăng nhập GHCR (chỉ khi push=true), đọc VERSION (qua ./set-version), tính
+  tags/labels, rồi build (và tuỳ chọn push) image bằng docker/build-push-action.
+
+inputs:
+  push:
+    description: "'true' để push image (+cache kiểu registry) lên GHCR/Docker Hub; 'false' để chỉ build."
+    required: false
+    default: "false"
+  ghcr-image:
+    description: "Full GHCR image ref, vd. ghcr.io/<owner>/kiraap"
+    required: true
+  dockerhub-image:
+    description: "Full Docker Hub image ref, vd. <user>/kiraap (chỉ được thêm vào khi trigger là push tag)"
+    required: false
+    default: ""
+  cache-type:
+    description: "'registry' (đẩy cache lên <ghcr-image>:buildcache, cần đăng nhập) hoặc 'gha' (cache GitHub Actions, không cần auth)"
+    required: false
+    default: "gha"
+  dockerfile:
+    description: "Đường dẫn Dockerfile"
+    required: false
+    default: "Dockerfile"
+  context:
+    description: "Build context"
+    required: false
+    default: "."
+  platforms:
+    description: "Target platforms"
+    required: false
+    default: "linux/amd64"
+  github-token:
+    description: "Token dùng đăng nhập GHCR (bắt buộc khi push=true; composite action không tự thấy được secrets nên phải truyền vào)"
+    required: false
+    default: ""
+
+outputs:
+  version:
+    description: "VERSION đã tính (<base>.<run_number>)"
+    value: ${{ steps.version.outputs.VERSION }}
+  tags:
+    description: "Danh sách tag đã áp cho image"
+    value: ${{ steps.meta.outputs.tags }}
+
+runs:
+  using: "composite"
+  steps:
+    - uses: docker/setup-buildx-action@v3
+
+    - name: Log in to GHCR
+      if: ${{ inputs.push == 'true' }}
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ inputs.github-token }}
+
+    # - name: Log in to Docker Hub
+    #   uses: docker/login-action@v3
+    #   with:
+    #     username: ${{ secrets.DOCKER_USERNAME }}
+    #     password: ${{ secrets.DOCKER_TOKEN }}
+
+    - name: Set VERSION
+      uses: ./.github/actions/set-version
+
+    - name: Expose version as step output
+      id: version
+      shell: bash
+      run: echo "VERSION=${{ env.VERSION }}" >> "$GITHUB_OUTPUT"
+
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: |
+          ${{ inputs.ghcr-image }}
+          ${{ github.event_name == 'push' && inputs.dockerhub-image || '' }}
+        tags: |
+          type=raw,value=${{ steps.version.outputs.VERSION }},enable=${{ github.event_name == 'push' }}
+          type=raw,value=latest,enable=${{ github.event_name == 'push' }}
+          type=raw,value=${{ steps.version.outputs.VERSION }}-manual,enable=${{ github.event_name == 'workflow_dispatch' }}
+
+    - name: Build
+      uses: docker/build-push-action@v6
+      with:
+        context: ${{ inputs.context }}
+        file: ${{ inputs.dockerfile }}
+        push: ${{ inputs.push == 'true' }}
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: ${{ inputs.cache-type == 'registry' && format('type=registry,ref={0}:buildcache', inputs.ghcr-image) || 'type=gha' }}
+        cache-to: ${{ inputs.cache-type == 'registry' && format('type=registry,ref={0}:buildcache,mode=max', inputs.ghcr-image) || 'type=gha,mode=max' }}
+        platforms: ${{ inputs.platforms }}
+        provenance: false
+        sbom: false

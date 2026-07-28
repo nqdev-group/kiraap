@@ -1,0 +1,41 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# claude
+*.local.json
+
+# OpenCode files
+opencode.json
+opencode.jsonc
+!opencode.example.jsonc
+
+# Botpress files
+*.skill
+
+# local env files
+.env*.local
+*.local
+*.local.json
+*.local.jsonc
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.js
+.yarn/install-state.gz
+
+# Archive files
+*.rar
+*.zip
+*.7z
+*.tar
+*.gz
+*.bz2
+*.xz
+
+# misc
+.DS_Store
+*.pem
+
+# Ignore all files in the .claude directory
+!.gitkeep
+!reports/.gitkeep
