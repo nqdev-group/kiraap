@@ -68,6 +68,11 @@ Nền tảng hỗ trợ xoay vòng API Key thông minh (API Key Load Balancing &
 - **Quản lý mô hình**: Bật/tắt mô hình, thiết lập mô hình mặc định cho từng danh mục.
 - **Nhật ký AI & Thống kê**: Theo dõi chi tiết lưu lượng sử dụng API thực tế.
 
+### 6. Proxy API tương thích OpenAI (`/v1`)
+- Cho phép người dùng tự tạo **API Key cá nhân** (`kira_sk_xxxxx`) và gọi KiraAP như một endpoint tương thích chuẩn OpenAI từ bất kỳ công cụ nào (VS Code Continue/Cline, SDK OpenAI, script tự viết...).
+- Hỗ trợ `POST /v1/chat/completions` (kèm streaming SSE), `POST /v1/images/generations`, `POST /v1/audio/speech`, `GET /v1/models`, `GET /v1/user/profile` và `GET /v1/user/api-keys`.
+- Trang **Tài liệu API** (`/docs`) trong ứng dụng mô tả chi tiết cách xác thực và ví dụ gọi từng endpoint.
+
 ---
 
 ## Công nghệ sử dụng
@@ -119,8 +124,8 @@ KiraAP/
 
 ### 2. Tải mã nguồn về máy
 ```bash
-git clone https://github.com/HuyKira/KiraAP.git
-cd KiraAP
+git clone https://github.com/nqdev-group/kiraap.git
+cd kiraap
 ```
 
 ### 3. Cài đặt các thư viện phụ thuộc
