@@ -48,6 +48,11 @@ public/
 .agents/
 ├── AGENTS.md                # standalone frontend rule (no native browser dialogs) — kept as its own file, do not edit or fold into this one
 └── skills/agent-flatform-api/SKILL.md   # detailed Google Agent Platform integration reference (endpoints, payloads, Node/PHP/Python examples) — consult this before writing/modifying any AI-call code
+
+docker/
+└── docker-compose.yml        # app + mongo services; build context is the repo root (..), dockerfile: Dockerfile
+
+Dockerfile                  # multi-stage (deps → runtime), non-root, node:18-alpine, EXPOSE 3000 — kept at repo root, not under docker/
 ```
 
 ## Commands
@@ -57,6 +62,7 @@ public/
 - `npm start` — start with plain node (production)
 - `npm run seed` — run `server/seed.js` to create the default admin user and seed the AI model catalog
 - No test suite, linter, or formatter is configured in this repo (no `.eslintrc*`, `.prettierrc*`, or `test` script exist).
+- `docker compose -f docker/docker-compose.yml up --build` — build and run the app + MongoDB in containers (requires `.env` at the repo root first, see below; builds from the root-level `Dockerfile`). Run `docker compose -f docker/docker-compose.yml exec app npm run seed` once, after the first startup, to create the admin account and model catalog inside the container's database.
 
 ## Environment configuration
 
