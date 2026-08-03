@@ -17,7 +17,6 @@
       "**/coverage": true,
       "**/logs": true,
       "**/.env": true,
-      "**/.vscode": true,
       "**/vbsec-reports": true
     }
   }
