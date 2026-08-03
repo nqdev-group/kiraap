@@ -862,7 +862,7 @@ Bước 5: markKeyError(keyId, errorMessage) — ghi lastError/lastErrorAt vào 
 
 ### 8.1 Environment Variables
 
-> Nguồn: `README.md`, `AGENTS.md` (không đọc trực tiếp được `.env.example` do quyền truy cập thư mục bị chặn trong phiên phân tích này — nội dung dưới đây tổng hợp từ tài liệu dự án)
+> Nguồn: `.env.example` (đã xác minh trực tiếp qua `git show HEAD:.env.example`) — khớp hoàn toàn với mô tả trong `README.md`/`AGENTS.md`
 
 | Biến | Ví dụ | Bắt buộc | Mô tả |
 |-----|-------|---------|-------|
@@ -932,7 +932,7 @@ Các điểm chưa xác định được rõ ràng hoặc có dấu hiệu chưa
 - [ ] README mô tả cơ chế API Key là "tự động chuyển sang API Key dự phòng nếu gặp lỗi hoặc hết quota", nhưng đọc code (`apiKeyManager.markKeyError`) cho thấy hệ thống chỉ **ghi nhận lỗi**, không tự động retry sang key khác trong cùng lượt gọi hay tự tắt `isActive` — cần làm rõ với đội phát triển gốc liệu đây là hành vi dự định hay tài liệu README đang mô tả chưa chính xác.
 - [ ] Không có test suite, linter hay formatter nào được cấu hình (không có `.eslintrc*`, `.prettierrc*`, script `test`) — không thể xác minh hành vi bằng test tự động.
 - [ ] `feature.md` là tài liệu thiết kế/kế hoạch UI ban đầu (chứa đường dẫn ảnh cục bộ của tác giả gốc), một số phần (models, layout thư mục cốt lõi) vẫn đúng nhưng **chưa cập nhật** theo các bổ sung sau này: `UserApiKey`, `Voice`, toàn bộ Proxy API, trang `/docs`, `admin/user-api-keys`. Không nên dùng `feature.md` làm nguồn sự thật cho API hiện tại.
-- [ ] `.env.example` không đọc được trực tiếp trong phiên phân tích này (bị chặn bởi cấu hình quyền của công cụ) — bảng biến môi trường ở mục 8.1 được tổng hợp gián tiếp từ `README.md`/`AGENTS.md`, nên xác minh lại trực tiếp file này khi cần triển khai.
+- [x] ~~`.env.example` không đọc được trực tiếp...~~ Đã xác minh trực tiếp (2026-08-03, qua `git show HEAD:.env.example`) — bảng biến môi trường ở mục 8.1 khớp 100% với file thật, không có sai lệch.
 
 ### 9.3 Files đã phân tích
 

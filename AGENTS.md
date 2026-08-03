@@ -52,8 +52,28 @@ public/
 docker/
 └── docker-compose.yml        # app + mongo services; build context is the repo root (..), dockerfile: Dockerfile
 
-Dockerfile                  # multi-stage (deps → runtime), non-root, node:18-alpine, EXPOSE 3000 — kept at repo root, not under docker/
+.github/
+├── actions/
+│   ├── docker-build-push/    # composite action: buildx + GHCR login (push=true only) + set-version + docker/build-push-action
+│   └── set-version/          # composite action: reads VERSION file (default "1.0") + github.run_number → env.VERSION
+└── workflows/
+    ├── kira-docker-publish.yml   # workflow_dispatch (tag-push trigger commented out) — builds & pushes to GHCR/Docker Hub, cache-type: registry
+    ├── kira-docker-testing.yml   # workflow_dispatch — build-only (push: "false"), cache-type: gha
+    └── changelog.yml             # on tag push `v*` or workflow_dispatch — writes .version.txt, runs auto-changelog → CHANGELOG-NQDEV.md, commits + pushes
+
+docs/
+└── BUSINESS-DOCUMENT.md      # business/domain documentation (Vietnamese)
+
+plans/                       # execution plans written by the nqdev-write-plan skill (dated *.md files)
+
+Dockerfile                  # multi-stage (deps → runtime), non-root, node:20.20.2-alpine, EXPOSE 3000, HEALTHCHECK against `/` — kept at repo root, not under docker/
 ```
+
+## CI/CD
+
+- Both Docker workflows (`kira-docker-publish.yml`, `kira-docker-testing.yml`) currently trigger only on `workflow_dispatch` — their `push: tags: v*` triggers are commented out, so tag pushes do **not** yet auto-build/publish images.
+- Both delegate to the shared composite action `.github/actions/docker-build-push`, which itself calls `.github/actions/set-version` to compute `VERSION=<base>.<run_number>` (base comes from a repo-root `VERSION` file if present, else defaults to `1.0` — no `VERSION` file exists yet, so builds currently version as `1.0.<run_number>`).
+- `changelog.yml` runs on `v*` tag pushes (or manually): sets `VERSION`, writes `.version.txt`, generates `CHANGELOG-NQDEV.md` via `auto-changelog`, and commits/pushes — distinct from the hand-maintained `CHANGELOG.md` at the repo root.
 
 ## Commands
 
@@ -75,6 +95,7 @@ Copy `.env.example` to `.env`. Required vars: `PORT`, `NODE_ENV`, `MONGODB_URI`,
 - **Auth layering**: apply `auth` then `adminOnly` (in that order) for protected admin routes. The separate `proxyAuth` middleware (not `auth`) guards the OpenAI-compatible proxy under `/v1`, authenticating via `UserApiKey` documents (key format `kira_sk_...`), not JWTs.
 - **Error responses**: JSON error shape is `{ success: false, message }` for internal APIs, but `{ error: { message, type, code } }` (OpenAI-style) for the `/v1` proxy routes — match whichever shape the surrounding route family already uses.
 - **Mongoose validation messages** are user-facing Vietnamese strings defined inline in the schema (see `server/models/User.js`) — follow this pattern for new fields.
+- **Design system**: coffee-brown + orange accent (`--accent:#E8740C`, `--brown:#4A2C2A`), Be Vietnam Pro font, defined as CSS custom properties in `public/css/variables.css`. User UI is light mode, admin UI is dark mode, both full-height (100vh) layouts — see `feature.md` for the original confirmed design decisions table.
 
 ## Gotchas
 
@@ -83,3 +104,5 @@ Copy `.env.example` to `.env`. Required vars: `PORT`, `NODE_ENV`, `MONGODB_URI`,
 - Gemini TTS returns **raw PCM audio** (24kHz, 16-bit, mono) — a 44-byte WAV header must be constructed manually before the audio is playable/downloadable (see `addWavHeader` example in the skill doc).
 - Image generation requires `generationConfig.responseModalities: ['IMAGE', 'TEXT']` in the request payload — omitting it returns text instead of an image.
 - `public/uploads/{images,videos,audios,temp}/*` is gitignored (only `.gitkeep` is tracked); media metadata lives in the `Media` model in MongoDB, not in git.
+- Docker Hub login is commented out in `.github/actions/docker-build-push/action.yml` — `dockerhub-image` tags/metadata are computed but images are only ever actually pushed to GHCR, not Docker Hub, despite `DOCKERHUB_IMAGE` being defined in both workflow files.
+- The Docker image workflows only run via manual `workflow_dispatch` right now (their tag-push triggers are commented out) — pushing a `v*` tag alone will run `changelog.yml` but will **not** build/publish a Docker image.

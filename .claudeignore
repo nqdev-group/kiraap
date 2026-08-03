@@ -1,0 +1,42 @@
+# Environment & Secrets (CRITICAL)
+.env
+.env.local
+.env.*.local
+.credentials
+.credentials.json
+secrets/
+*.key
+*.pem
+.ssh/
+
+# IDE & OS
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Version Control
+.git/
+
+# Large Binary Files
+*.mp4
+*.mov
+*.wav
+*.zip
+*.tar.gz
+
+# Database
+*.sqlite
+*.sqlite3
+*.db
+
+# Node.js dependencies & generated output
+node_modules/
+public/uploads/images/*
+public/uploads/videos/*
+public/uploads/audios/*
+public/uploads/temp/*
+!public/uploads/*/.gitkeep
+scratch/
