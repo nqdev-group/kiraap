@@ -36,6 +36,7 @@ const upload = multer({
  */
 router.post('/', auth, aiLimiter, upload.array('files', 5), async (req, res) => {
     const { prompt, conversationId, modelId } = req.body;
+		console.log("🚀 QuyNH: { prompt, conversationId, modelId }", { prompt, conversationId, modelId })
 
     if (!prompt && (!req.files || req.files.length === 0)) {
         return res.status(400).json({
