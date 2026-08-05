@@ -1,0 +1,101 @@
+<div class="admin-page-header">
+    <h2>AI Provider (Custom OpenAI/Anthropic Compatible)</h2>
+    <button class="btn btn-primary" onclick="openAddProviderModal()"><i class="fas fa-plus"></i> Thêm Provider</button>
+</div>
+<div class="data-table-wrap">
+    <table class="data-table">
+        <thead><tr><th>Tên</th><th>Loại</th><th>Base URL</th><th>Số Key</th><th>Chiến lược</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
+        <tbody>
+        <% providers.forEach(function(p) { %>
+        <tr id="provider-<%= p._id %>">
+            <td><%= p.name %></td>
+            <td><span class="badge badge-<%= p.type === 'anthropic' ? 'info' : 'success' %>"><%= p.type === 'anthropic' ? 'Anthropic' : 'OpenAI' %></span></td>
+            <td><code><%= p.baseUrl %></code></td>
+            <td><%= p.keyCount %></td>
+            <td><%= p.keyRotationStrategy === 'random' ? 'Ngẫu nhiên' : 'Tuần tự' %></td>
+            <td><span class="badge badge-<%= p.isActive ? 'success' : 'danger' %>"><%= p.isActive ? 'Hoạt động' : 'Tắt' %></span></td>
+            <td class="actions">
+                <button class="btn-icon" onclick='editProvider(<%- JSON.stringify(p) %>)' title="Sửa"><i class="fas fa-edit"></i></button>
+                <a class="btn-icon" href="/admin/providers/<%= p._id %>/keys" title="Quản lý Key"><i class="fas fa-key"></i></a>
+                <button class="btn-icon btn-danger" onclick="deleteProvider('<%= p._id %>')" title="Xoá"><i class="fas fa-trash"></i></button>
+            </td>
+        </tr>
+        <% }); %>
+        <% if (providers.length === 0) { %><tr><td colspan="7" class="empty-text">Chưa có Provider nào</td></tr><% } %>
+        </tbody>
+    </table>
+</div>
+<script>
+function providerTypeOptions(selected) {
+    return '<option value="openai"' + (selected==='openai'?' selected':'') + '>OpenAI compatible</option>' +
+           '<option value="anthropic"' + (selected==='anthropic'?' selected':'') + '>Anthropic compatible</option>';
+}
+function strategyOptions(selected) {
+    return '<option value="sequential"' + (selected==='sequential'?' selected':'') + '>Tuần tự (sequential)</option>' +
+           '<option value="random"' + (selected==='random'?' selected':'') + '>Ngẫu nhiên (random)</option>';
+}
+function openAddProviderModal() {
+    showModal('Thêm AI Provider',
+        '<div class="form-group"><label>Tên</label><input type="text" id="addProvName" placeholder="VD: OpenRouter"></div>' +
+        '<div class="form-group"><label>Loại</label><select id="addProvType">' + providerTypeOptions('openai') + '</select></div>' +
+        '<div class="form-group"><label>Base URL</label><input type="text" id="addProvUrl" placeholder="https://openrouter.ai/api/v1"></div>' +
+        '<div class="form-group"><label>Chiến lược xoay vòng Key</label><select id="addProvStrategy">' + strategyOptions('sequential') + '</select></div>' +
+        '<div class="form-group"><label>Extra Headers (JSON, tuỳ chọn)</label><textarea id="addProvHeaders" rows="2" placeholder=\'{"HTTP-Referer":"..."}\'></textarea></div>',
+        '<button class="btn btn-secondary" onclick="closeModal()">Huỷ</button><button class="btn btn-primary" onclick="saveProvider()">Lưu</button>'
+    );
+}
+function parseHeadersInput(id) {
+    const raw = document.getElementById(id).value.trim();
+    if (!raw) return {};
+    try { return JSON.parse(raw); } catch (e) { return null; }
+}
+async function saveProvider() {
+    const extraHeaders = parseHeadersInput('addProvHeaders');
+    if (extraHeaders === null) return showToast('Extra Headers không phải JSON hợp lệ', 'error');
+    const data = {
+        name: document.getElementById('addProvName').value,
+        type: document.getElementById('addProvType').value,
+        baseUrl: document.getElementById('addProvUrl').value,
+        keyRotationStrategy: document.getElementById('addProvStrategy').value,
+        extraHeaders
+    };
+    if (!data.name || !data.baseUrl) return showToast('Vui lòng nhập đầy đủ', 'error');
+    const res = await adminFetch('/admin/providers/api', { method: 'POST', body: JSON.stringify(data) });
+    if (res?.success) { showToast('Đã thêm Provider', 'success'); closeModal(); location.reload(); }
+    else showToast(res?.message || 'Lỗi', 'error');
+}
+function editProvider(p) {
+    showModal('Sửa AI Provider',
+        '<div class="form-group"><label>Tên</label><input type="text" id="editProvName" value="' + p.name + '"></div>' +
+        '<div class="form-group"><label>Loại</label><select id="editProvType">' + providerTypeOptions(p.type) + '</select></div>' +
+        '<div class="form-group"><label>Base URL</label><input type="text" id="editProvUrl" value="' + p.baseUrl + '"></div>' +
+        '<div class="form-group"><label>Chiến lược xoay vòng Key</label><select id="editProvStrategy">' + strategyOptions(p.keyRotationStrategy) + '</select></div>' +
+        '<div class="form-group"><label>Extra Headers (JSON, tuỳ chọn)</label><textarea id="editProvHeaders" rows="2">' + (p.extraHeaders && Object.keys(p.extraHeaders).length ? JSON.stringify(p.extraHeaders) : '') + '</textarea></div>' +
+        '<div class="form-group"><label><input type="checkbox" id="editProvActive" ' + (p.isActive?'checked':'') + '> Hoạt động</label></div>',
+        '<button class="btn btn-secondary" onclick="closeModal()">Huỷ</button><button class="btn btn-primary" onclick="updateProvider(\'' + p._id + '\')">Cập nhật</button>'
+    );
+}
+async function updateProvider(id) {
+    const extraHeaders = parseHeadersInput('editProvHeaders');
+    if (extraHeaders === null) return showToast('Extra Headers không phải JSON hợp lệ', 'error');
+    const data = {
+        name: document.getElementById('editProvName').value,
+        type: document.getElementById('editProvType').value,
+        baseUrl: document.getElementById('editProvUrl').value,
+        keyRotationStrategy: document.getElementById('editProvStrategy').value,
+        isActive: document.getElementById('editProvActive').checked,
+        extraHeaders
+    };
+    const res = await adminFetch('/admin/providers/api/' + id, { method: 'PUT', body: JSON.stringify(data) });
+    if (res?.success) { showToast('Đã cập nhật', 'success'); closeModal(); location.reload(); }
+    else showToast(res?.message || 'Lỗi', 'error');
+}
+async function deleteProvider(id) {
+    const ok = await showConfirm('Xoá Provider', 'Bạn chắc chắn muốn xoá Provider này? Toàn bộ Key của Provider sẽ bị xoá theo.');
+    if (!ok) return;
+    const res = await adminFetch('/admin/providers/api/' + id, { method: 'DELETE' });
+    if (res?.success) { showToast('Đã xoá', 'success'); document.getElementById('provider-' + id)?.remove(); }
+    else showToast(res?.message || 'Lỗi', 'error');
+}
+
+</script>

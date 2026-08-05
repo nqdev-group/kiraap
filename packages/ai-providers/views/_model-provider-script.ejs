@@ -1,0 +1,14 @@
+<script>
+var MODEL_PROVIDERS = <%- JSON.stringify(providers.map(p => ({ _id: p._id, name: p.name, type: p.type }))) %>;
+function providerSelectOptions(selectedId) {
+    var opts = '<option value="">Google (mặc định)</option>';
+    MODEL_PROVIDERS.forEach(function(p) {
+        opts += '<option value="' + p._id + '"' + (selectedId === p._id ? ' selected' : '') + '>' + p.name + ' (' + p.type + ')</option>';
+    });
+    return opts;
+}
+function toggleProviderGroup(catSelectId, groupId) {
+    var cat = document.getElementById(catSelectId).value;
+    document.getElementById(groupId).style.display = (cat === 'text' || cat === 'image') ? '' : 'none';
+}
+</script>

@@ -1,0 +1,88 @@
+<div class="admin-page-header">
+    <div>
+        <a href="/admin/providers" class="btn btn-secondary" style="margin-bottom:12px;display:inline-flex;">
+            <i class="fas fa-arrow-left"></i> Quay lại Provider
+        </a>
+        <h2>Quản lý Key — <%= provider.name %></h2>
+        <p style="color:var(--text2);margin-top:6px;"><span class="badge badge-<%= provider.type === 'anthropic' ? 'info' : 'success' %>"><%= provider.type === 'anthropic' ? 'Anthropic' : 'OpenAI' %></span> <code><%= provider.baseUrl %></code></p>
+    </div>
+</div>
+
+<div class="data-table-wrap" style="margin-bottom:24px;">
+    <div style="padding:16px;display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+        <div class="form-group" style="margin-bottom:0;">
+            <label>Tên Key</label>
+            <input type="text" id="newKeyName" placeholder="VD: Key 1">
+        </div>
+        <div class="form-group" style="margin-bottom:0;flex:1;min-width:240px;">
+            <label>API Key</label>
+            <input type="text" id="newKeyValue" placeholder="sk-...">
+        </div>
+        <button class="btn btn-primary" onclick="addProviderKey()"><i class="fas fa-plus"></i> Thêm Key</button>
+    </div>
+</div>
+
+<div class="data-table-wrap">
+    <table class="data-table">
+        <thead><tr><th>Tên</th><th>Key</th><th>Lượt dùng</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
+        <tbody id="keysTableBody">
+            <tr><td colspan="5" class="empty-text">Đang tải...</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<script>
+const providerId = '<%= provider._id %>';
+
+async function loadKeys() {
+    const res = await adminFetch('/admin/providers/api/' + providerId + '/keys');
+    const keys = res?.data || [];
+    const tbody = document.getElementById('keysTableBody');
+
+    if (keys.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="empty-text">Chưa có Key nào</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = keys.map(function(k) {
+        return '<tr>' +
+            '<td>' + k.name + '</td>' +
+            '<td><code>' + k.key.substring(0, 6) + '...****</code></td>' +
+            '<td>' + (k.usageCount || 0) + '</td>' +
+            '<td><span class="badge badge-' + (k.isActive ? 'success' : 'danger') + '">' + (k.isActive ? 'Hoạt động' : 'Tắt') + '</span></td>' +
+            '<td class="actions">' +
+            '<button class="btn-icon" onclick="toggleProviderKey(\'' + k._id + '\',' + !k.isActive + ')" title="' + (k.isActive ? 'Tắt' : 'Bật') + '"><i class="fas fa-power-off"></i></button>' +
+            '<button class="btn-icon btn-danger" onclick="deleteProviderKey(\'' + k._id + '\')" title="Xoá"><i class="fas fa-trash"></i></button>' +
+            '</td></tr>';
+    }).join('');
+}
+
+async function addProviderKey() {
+    const name = document.getElementById('newKeyName').value;
+    const key = document.getElementById('newKeyValue').value;
+    if (!name || !key) return showToast('Vui lòng nhập đầy đủ', 'error');
+    const res = await adminFetch('/admin/providers/api/' + providerId + '/keys', { method: 'POST', body: JSON.stringify({ name, key }) });
+    if (res?.success) {
+        showToast('Đã thêm Key', 'success');
+        document.getElementById('newKeyName').value = '';
+        document.getElementById('newKeyValue').value = '';
+        await loadKeys();
+    } else showToast(res?.message || 'Lỗi', 'error');
+}
+
+async function toggleProviderKey(keyId, newActive) {
+    const res = await adminFetch('/admin/providers/api/' + providerId + '/keys/' + keyId, { method: 'PUT', body: JSON.stringify({ isActive: newActive }) });
+    if (res?.success) { showToast('Đã cập nhật', 'success'); await loadKeys(); }
+    else showToast(res?.message || 'Lỗi', 'error');
+}
+
+async function deleteProviderKey(keyId) {
+    const ok = await showConfirm('Xoá Key', 'Bạn chắc chắn muốn xoá Key này?');
+    if (!ok) return;
+    const res = await adminFetch('/admin/providers/api/' + providerId + '/keys/' + keyId, { method: 'DELETE' });
+    if (res?.success) { showToast('Đã xoá', 'success'); await loadKeys(); }
+    else showToast(res?.message || 'Lỗi', 'error');
+}
+
+document.addEventListener('DOMContentLoaded', loadKeys);
+</script>
