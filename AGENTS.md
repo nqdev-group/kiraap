@@ -109,6 +109,8 @@ Copy `.env.example` to `.env`. Required vars: `PORT`, `NODE_ENV`, `MONGODB_URI`,
 
 ## Gotchas
 
+- **Dual lockfiles**: both `package-lock.json` and `yarn.lock`/`.yarn/`/`.yarnrc.yml` exist and are both actively updated — there is no `packageManager` field or `engines` constraint in `package.json` to declare which is authoritative. `npm install`/`npm run dev`/`npm start` (documented above) is the workflow actually used; don't assume yarn is the source of truth just because its lockfile is present and current.
+- `vbsec-reports/` (output dir for the `vbs-scan-security` skill) is **not** in `.gitignore` — if that skill is run and writes reports there, check before committing that a vulnerability report isn't accidentally checked into git history.
 - `helmet` is configured with `contentSecurityPolicy: false` and `crossOriginEmbedderPolicy: false` in `server/app.js` — CSP is intentionally off, don't assume it's protecting inline scripts/styles.
 - Veo video generation is a Long-Running Operation (LRO): you must poll `fetchPredictOperation` after `predictLongRunning` — see `.agents/skills/agent-flatform-api/SKILL.md` for the exact endpoints and per-model `durationSeconds` constraints (`veo-3.1-lite`/`veo-3.0` support `[4,6,8]`s, `veo-2.0` supports `[5,6,7,8]`s).
 - Gemini TTS returns **raw PCM audio** (24kHz, 16-bit, mono) — a 44-byte WAV header must be constructed manually before the audio is playable/downloadable (see `addWavHeader` example in the skill doc).
