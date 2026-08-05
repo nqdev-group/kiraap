@@ -26,6 +26,7 @@ services:
       - "3000:3000"
     volumes:
       - ../public/uploads:/app/public/uploads
+      - ../logs:/app/logs
     depends_on:
       mongo:
         condition: service_healthy

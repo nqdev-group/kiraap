@@ -15,9 +15,10 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY package.json ./
 COPY server ./server
 COPY public ./public
+COPY packages ./packages
 
-# Ensure upload directories exist even if bind-mounted volumes are empty
-RUN mkdir -p public/uploads/images public/uploads/videos public/uploads/audios public/uploads/temp \
+# Ensure upload/log directories exist even if bind-mounted volumes are empty
+RUN mkdir -p public/uploads/images public/uploads/videos public/uploads/audios public/uploads/temp logs \
     && chown -R node:node /app
 
 USER node

@@ -15,9 +15,16 @@
       "**/dist": true,
       "**/build": true,
       "**/coverage": true,
-      "**/logs": true,
-      "**/.env": true,
-      "**/vbsec-reports": true
+      "**/vbsec-reports": true,
+      "**/.playwright-mcp": true,
+      "**/.agents": true,
+      "**/.vscode": true,
+      "**/.idea": true,
+      "**/.cache": true,
+      "**/.next": true,
+      "**/.nuxt": true,
+      "**/.output": true,
+      "**/.yarn": true
     }
   }
 }

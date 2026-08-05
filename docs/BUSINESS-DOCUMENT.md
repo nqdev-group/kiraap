@@ -1,11 +1,11 @@
 # Kira Agent Platform (KiraAP) — Tài liệu Nghiệp vụ & Quy trình
 
-> **Phiên bản tài liệu:** v1.0
-> **Ngày phân tích:** 2026-07-28
+> **Phiên bản tài liệu:** v1.1
+> **Ngày phân tích:** 2026-07-28 (cập nhật lần cuối: 2026-08-03)
 > **Nguồn:** Phân tích từ codebase tại `D:\nqdev-wps\github\nqdev-group\kiraap`
 > **Tech stack:** Node.js (Express 5) + MongoDB (Mongoose) + EJS (SSR) + Vanilla JS
 
-> Repo đã có sẵn [SPECS.md](../SPECS.md) — một bản đặc tả kỹ thuật rất chi tiết viết bởi các phiên làm việc trước. Tài liệu này **kế thừa và tổ chức lại** thông tin đó theo góc nhìn nghiệp vụ (actors, quy trình, business rules) thay vì lặp lại thuần kỹ thuật. Khi có mâu thuẫn, ưu tiên đọc code trực tiếp; `feature.md` là tài liệu thiết kế ban đầu, đã lệch một phần so với hiện trạng (xem mục 9.2).
+> `AGENTS.md` là nguồn tri thức chuẩn (canonical) của repo — khi có mâu thuẫn, ưu tiên đọc `AGENTS.md`/code trực tiếp. `feature.md` là tài liệu thiết kế ban đầu, đã lệch một phần so với hiện trạng (xem mục 9.2). File `SPECS.md` từng tồn tại nhưng đã bị xoá khỏi repo (commit `f53f153`, 2026-07-28) — không còn là nguồn tham chiếu hợp lệ.
 
 ---
 
@@ -49,6 +49,7 @@
 | 8 | Thư viện Media & Nhật ký AI | Duyệt/xoá media toàn hệ thống, xem/lọc/xuất CSV nhật ký sử dụng AI | ✅ Hoạt động |
 | 9 | Proxy API tương thích OpenAI (`/v1`) | User tự tạo API Key cá nhân (`kira_sk_...`) để gọi KiraAP từ VS Code Continue/Cline, SDK OpenAI, script tự viết | ✅ Hoạt động |
 | 10 | Trang tài liệu API trong ứng dụng | `/docs` — mô tả cách xác thực & ví dụ gọi từng endpoint Proxy | ✅ Hoạt động |
+| 11 | Custom AI Provider (OpenAI/Anthropic compatible) | Cấu hình provider AI ngoài (vd. OpenRouter, Groq, Claude trực tiếp) làm nguồn thay thế Google cho model `text`/`image`, pool nhiều key + xoay vòng riêng | ✅ Hoạt động |
 
 ### 1.3 Hệ thống phụ thuộc (Dependencies)
 
@@ -67,7 +68,7 @@
 
 | Layer | Technology | Version | Ghi chú |
 |-------|-----------|---------|--------|
-| Runtime | Node.js | ≥ v18 (image Docker: `node:18-alpine`) | |
+| Runtime | Node.js | ≥ v18 (image Docker: `node:20.20.2-alpine`, nâng cấp từ `node:18-alpine`) | |
 | Framework | Express | ^5.2.1 | |
 | Database | MongoDB qua Mongoose | `^9.8.0` — lưu ý đây là major mới hơn v7/v8 phổ biến | |
 | Auth | JWT (`jsonwebtoken`) + `bcryptjs` | `^9.0.3` / `^3.0.3` | Token đọc theo thứ tự: header `Authorization: Bearer` → cookie `token` |
@@ -132,7 +133,7 @@ public/
 └── skills/agent-flatform-api/SKILL.md  # Tham chiếu tích hợp Google Agent Platform (bắt buộc đọc trước khi sửa code gọi AI)
 
 docker/docker-compose.yml    # app + mongo, build context = gốc repo
-Dockerfile                   # multi-stage, non-root, node:18-alpine, EXPOSE 3000 — ở gốc repo
+Dockerfile                   # multi-stage, non-root, node:20.20.2-alpine, EXPOSE 3000 — ở gốc repo
 ```
 
 ---
@@ -199,10 +200,40 @@ Dockerfile                   # multi-stage, non-root, node:18-alpine, EXPOSE 300
 | `displayName` | String | No | Tên hiển thị trên UI |
 | `isDefault` | Boolean | No | Đúng 1 bản ghi `true`/category (ràng buộc ở `pre('save')`) |
 | `isActive` | Boolean | No (default `true`) | Ẩn/hiện trên UI chọn model |
+| `providerId` | ObjectId → AIProvider | Yes (default `null`) | `null` = dùng Google Agent Platform (mặc định); có giá trị = route qua Custom AI Provider. Chỉ có ý nghĩa với `category` `text`/`image` |
 | `systemPrompt` | String | Yes | Chỉ dùng cho `text` |
 | `parameters` | Object | - | `temperature, maxOutputTokens, topP, topK, aspectRatio, voiceName, durationSeconds` |
 
 > Nguồn: `server/models/ModelConfig.js`
+
+#### Entity: AIProvider (Custom Provider — OpenAI/Anthropic compatible)
+
+| Field | Type | Nullable | Mô tả |
+|-------|------|----------|-------|
+| `_id` | ObjectId | No | Primary key |
+| `name` | String | No | Tên gợi nhớ (vd. "OpenRouter", "Groq Cloud") |
+| `type` | Enum `openai\|anthropic` | No | Quyết định adapter/payload dùng để gọi (`packages/ai-providers/services/providerAdapters/`) |
+| `baseUrl` | String | No | Base URL API (vd. `https://openrouter.ai/api/v1`, `https://api.anthropic.com`) |
+| `extraHeaders` | Object | No (default `{}`) | Header tuỳ chỉnh (vd. `anthropic-version`, `HTTP-Referer`) |
+| `keyRotationStrategy` | Enum `sequential\|random` | No (default `sequential`) | Chiến lược xoay vòng key trong pool của provider này |
+| `isActive` | Boolean | No (default `true`) | Tắt toàn bộ provider (mọi model gắn vào sẽ lỗi rõ ràng) |
+
+> Nguồn: `packages/ai-providers/models/AIProvider.js` — quản lý tại `/admin/providers` (menu "NQDEV Platform → AI Provider").
+
+#### Entity: ProviderApiKey (Pool key của 1 AIProvider)
+
+| Field | Type | Nullable | Mô tả |
+|-------|------|----------|-------|
+| `_id` | ObjectId | No | Primary key |
+| `providerId` | ObjectId → AIProvider | No | Provider sở hữu key này |
+| `name` | String | No | Tên gợi nhớ |
+| `key` | String | No | Bearer token / `x-api-key` thật |
+| `isActive` | Boolean | No (default `true`) | Bật/tắt trong vòng xoay |
+| `usageCount` | Number | No (default 0) | |
+| `lastUsedAt` | DateTime | Yes | |
+| `lastError`/`lastErrorAt` | String/DateTime | Yes | Lỗi gần nhất |
+
+> Nguồn: `packages/ai-providers/models/ProviderApiKey.js` — mirror cấu trúc `ApiKey.js` (Google) nhưng theo từng provider, xoay vòng bởi `packages/ai-providers/services/providerKeyManager.js` (độc lập với `apiKeyManager.js` của Google).
 
 #### Entity: Conversation
 
@@ -286,6 +317,9 @@ User 1 ──── N AILog
 ApiKey (kho Google, độc lập)      — dùng nội bộ bởi apiKeyManager, không có FK trực tiếp
 ModelConfig (catalog, độc lập)    — tham chiếu bằng string modelId trong Message/Media/AILog (không FK)
 Voice (catalog, độc lập)          — voiceId "kiểu OpenAI" ánh xạ sang tên giọng Gemini thật (mappedTo)
+
+AIProvider 1 ──── N ProviderApiKey   — pool key riêng theo từng Custom Provider
+ModelConfig N ──── 1 AIProvider      — providerId (nullable); null = dùng Google thay vì Custom Provider
 ```
 
 | Quan hệ | Mô tả |
@@ -346,7 +380,8 @@ Voice (catalog, độc lập)          — voiceId "kiểu OpenAI" ánh xạ san
 | Profile & đổi mật khẩu của chính mình | RU | - | R (chỉ `/v1/user/profile`) |
 | API Key cá nhân (`UserApiKey`) của chính mình | CRUD (tối đa 10 key) | R + toggle `isActive` + D (của **mọi** user, `/admin/user-api-keys`) | R (`/v1/user/api-keys`, chỉ của chính mình) |
 | Kho API Key Google (`ApiKey`) | - | CRUD | - |
-| Catalog Model (`ModelConfig`) | R (chỉ `isActive=true`) | CRUD | R (chỉ `isActive=true`, qua `/v1/models`) |
+| Custom AI Provider (`AIProvider`, `ProviderApiKey`) | - | CRUD | - |
+| Catalog Model (`ModelConfig`) | R (chỉ `isActive=true`) | CRUD (kèm gắn/gỡ `providerId`) | R (chỉ `isActive=true`, qua `/v1/models`) |
 | Catalog Voice | R (chỉ `isActive=true`) | - (không có route admin CRUD riêng cho Voice — xem mục 9.2) | - |
 | Người dùng (`User`) | - | CRUD (chặn xoá `role=admin`) | - |
 | Nhật ký AI (`AILog`) | - | R + Export CSV | - |
@@ -376,6 +411,7 @@ Voice (catalog, độc lập)          — voiceId "kiểu OpenAI" ánh xạ san
 | WF-015 | Xem & xuất Nhật ký AI | Admin | `/admin/logs`, `/admin/logs/export` | Lọc log theo category/status/username, xuất CSV (≤5000 dòng) |
 | WF-016 | Quản trị API Key cá nhân của mọi user | Admin | `/admin/user-api-keys` | Bật/tắt, xoá key của bất kỳ user nào |
 | WF-017 | Seed dữ liệu khởi tạo | Admin (vận hành) | `npm run seed` | Tạo admin mặc định + seed catalog Model & Voice |
+| WF-018 | Quản trị Custom AI Provider | Admin | `/admin/providers` | CRUD `AIProvider` + pool `ProviderApiKey`, gắn vào `ModelConfig` qua `providerId` |
 
 ---
 
@@ -733,6 +769,43 @@ Bước 5: markKeyError(keyId, errorMessage) — ghi lastError/lastErrorAt vào 
 
 ---
 
+### WF-018: Quản trị Custom AI Provider (OpenAI/Anthropic compatible)
+
+**Mô tả:** Cho phép Admin cấu hình các provider AI ngoài (tương thích OpenAI hoặc Anthropic) làm nguồn thay thế Google cho từng Model AI cụ thể — hiển thị dưới menu **NQDEV Platform → AI Provider**.
+**Actor:** Admin
+**Trigger:** `/admin/providers`
+**Nguồn code:** `packages/ai-providers/routes/providers.js`, `packages/ai-providers/models/AIProvider.js`, `packages/ai-providers/models/ProviderApiKey.js`, `packages/ai-providers/services/providerKeyManager.js`, `packages/ai-providers/services/providerAdapters/`
+
+#### Luồng chính
+
+```
+Bước 1: Admin tạo 1 AIProvider (name, type='openai'|'anthropic', baseUrl,
+         extraHeaders?, keyRotationStrategy)
+
+Bước 2: Admin thêm 1..N ProviderApiKey vào pool của Provider đó (modal
+         "Quản lý Key")
+
+Bước 3: Tại /admin/models, Admin gắn 1 ModelConfig (category='text' hoặc
+         'image') vào AIProvider vừa tạo qua trường providerId
+
+Bước 4: Khi user gọi Chat/Image dùng model đó, agentPlatform.js phát hiện
+         model.providerId khác null → route qua providerKeyManager (xoay
+         vòng key theo keyRotationStrategy) + adapter tương ứng
+         (providerAdapters/openai.js hoặc anthropic.js) thay vì gọi Google
+
+Bước 5: Kết quả được chuẩn hoá về đúng shape nội bộ (giống hệt Google) trước
+         khi lưu Message/Media/AILog — không có khác biệt ở tầng dữ liệu
+         giữa model Google và model Custom Provider
+```
+
+#### Business Rules
+- **Rule 1:** Phạm vi chỉ áp dụng `category` `text` và `image` — `video`/`tts` luôn dùng Google vì OpenAI/Anthropic chuẩn không có API tương đương. `type='anthropic'` không hỗ trợ `image` (Anthropic không có API tạo ảnh).
+- **Rule 2:** Mỗi Provider có pool key riêng, xoay vòng độc lập với kho `ApiKey` của Google (không dùng chung `apiKeyManager`).
+- **Rule 3:** Không thể xoá 1 `AIProvider` nếu còn `ModelConfig` đang tham chiếu (`providerId`) — phải gỡ liên kết ở `/admin/models` trước.
+- **Rule 4:** Với chat streaming qua Custom Provider, `tokenInput`/`tokenOutput` ghi vào `Message`/`AILog` sẽ là `0` (giới hạn kỹ thuật — xem `AGENTS.md`); chat không-stream (`/v1/chat/completions` với `stream:false`) vẫn ghi đúng token thật từ response provider.
+
+---
+
 ## 7. API & TÍCH HỢP
 
 ### 7.1 API Overview
@@ -830,6 +903,14 @@ Bước 5: markKeyError(keyId, errorMessage) — ghi lastError/lastErrorAt vào 
 | `GET` | `/admin/user-api-keys` | Trang quản lý key cá nhân của mọi user |
 | `PUT` | `/admin/user-api-keys/api/:id` | Bật/tắt key |
 | `DELETE` | `/admin/user-api-keys/api/:id` | Xoá key |
+| `GET` | `/admin/providers` | Trang danh sách Custom AI Provider (menu "NQDEV Platform") |
+| `POST` | `/admin/providers/api` | Thêm Provider |
+| `PUT` | `/admin/providers/api/:id` | Sửa Provider |
+| `DELETE` | `/admin/providers/api/:id` | Xoá Provider (chặn nếu còn `ModelConfig` tham chiếu; cascade xoá `ProviderApiKey`) |
+| `GET` | `/admin/providers/api/:id/keys` | Danh sách key trong pool của Provider |
+| `POST` | `/admin/providers/api/:id/keys` | Thêm key vào pool |
+| `PUT` | `/admin/providers/api/:id/keys/:keyId` | Sửa/bật-tắt key |
+| `DELETE` | `/admin/providers/api/:id/keys/:keyId` | Xoá key |
 
 #### Trang SSR người dùng — đăng ký trực tiếp trong `server/app.js`
 
@@ -908,6 +989,15 @@ docker compose -f docker/docker-compose.yml exec app npm run seed
 
 > Không có bằng chứng về cron job hay hàng đợi (queue) trong codebase. `apiKeyManager` dùng cache in-memory tự làm mới theo TTL (5 phút) khi có request tới, không phải scheduled job độc lập.
 
+### 8.5 CI/CD
+
+> Nguồn: `AGENTS.md`, `.github/workflows/*`, `.github/actions/*` — bổ sung sau lần phân tích đầu (2026-07-28), không thuộc business logic nhưng ảnh hưởng vận hành.
+
+- `kira-docker-publish.yml` và `kira-docker-testing.yml` hiện chỉ chạy qua `workflow_dispatch` thủ công — trigger `push: tags: v*` đang bị comment, nên push tag **chưa** tự động build/publish image.
+- Cả hai đều dùng chung composite action `.github/actions/docker-build-push`, gọi tiếp `.github/actions/set-version` để tính `VERSION=<base>.<run_number>` (base đọc từ file `VERSION` ở gốc repo nếu có, mặc định `1.0` — hiện chưa có file `VERSION` nên build đang version hoá là `1.0.<run_number>`).
+- `changelog.yml` chạy khi push tag `v*` (hoặc thủ công): ghi `.version.txt`, sinh `CHANGELOG-NQDEV.md` bằng `auto-changelog`, rồi tự commit + push — tách biệt với `CHANGELOG.md` viết tay ở gốc repo.
+- Đăng nhập Docker Hub đang bị comment trong action composite — image chỉ thực sự được push lên GHCR, dù `DOCKERHUB_IMAGE` vẫn được khai báo trong cả hai workflow.
+
 ---
 
 ## 9. PHỤ LỤC
@@ -939,8 +1029,7 @@ Các điểm chưa xác định được rõ ràng hoặc có dấu hiệu chưa
 | File | Mục đích |
 |------|--------|
 | `README.md` | Tổng quan dự án, tính năng, hướng dẫn cài đặt |
-| `AGENTS.md` | Tri thức dự án chuẩn hoá: stack, cấu trúc, quy ước, gotchas |
-| `SPECS.md` | Đặc tả kỹ thuật chi tiết hiện trạng codebase (nguồn tham chiếu chính) |
+| `AGENTS.md` | Tri thức dự án chuẩn hoá: stack, cấu trúc, quy ước, gotchas — nguồn canonical hiện tại |
 | `feature.md` | Tài liệu thiết kế/kế hoạch UI ban đầu (một phần đã lỗi thời) |
 | `CHANGELOG.md` | Lịch sử thay đổi |
 | `.agents/AGENTS.md` | Quy tắc frontend: không dùng dialog native |
@@ -954,9 +1043,16 @@ Các điểm chưa xác định được rõ ràng hoặc có dấu hiệu chưa
 | `server/services/*.js` (3 file) | agentPlatform (đọc chữ ký hàm), apiKeyManager, tokenCounter |
 | `server/seed.js` | Dữ liệu khởi tạo: admin, catalog Model, catalog Voice |
 | `Dockerfile`, `docker/docker-compose.yml` | Triển khai container |
+| `.github/workflows/*.yml`, `.github/actions/*` | CI/CD: build/publish Docker image, changelog tự động |
+| `packages/ai-providers/models/AIProvider.js`, `ProviderApiKey.js` | Custom AI Provider (OpenAI/Anthropic compatible) + pool key |
+| `packages/ai-providers/services/providerKeyManager.js`, `providerAdapters/*.js`, `agentPlatformBridge.js` | Xoay vòng key + adapter dịch request/response + bridge gọi từ `server/services/agentPlatform.js` cho Custom Provider |
+| `packages/ai-providers/routes/providers.js`, `views/admin/providers.ejs` | Trang quản trị "NQDEV Platform → AI Provider" |
+| `packages/mongo-connect-retry/index.js` | Retry-with-backoff cho lần connect MongoDB đầu tiên, gọi từ `server/config/database.js` |
 
 ### 9.4 Lịch sử tài liệu
 
 | Ngày | Phiên bản | Thay đổi |
 |------|----------|---------|
-| 2026-07-28 | v1.0 | Tạo mới từ phân tích codebase, tổ chức theo góc nhìn nghiệp vụ (actors, workflows, business rules) dựa trên `SPECS.md` + đọc trực tiếp source code |
+| 2026-07-28 | v1.0 | Tạo mới từ phân tích codebase, tổ chức theo góc nhìn nghiệp vụ (actors, workflows, business rules) dựa trên `SPECS.md` (đã xoá cùng ngày) + đọc trực tiếp source code |
+| 2026-08-03 | v1.1 | Xác nhận `server/` (models, routes, services) không đổi kể từ v1.0 — toàn bộ domain model, actors, workflows, API vẫn chính xác. Cập nhật: bỏ tham chiếu `SPECS.md` (đã xoá khỏi repo), Docker image `node:18-alpine` → `node:20.20.2-alpine`, thêm mục 8.5 CI/CD (workflows GitHub Actions build/publish Docker + changelog tự động, chưa tồn tại ở v1.0) |
+| 2026-08-03 | v1.2 | Thêm tính năng Custom AI Provider (OpenAI/Anthropic compatible): entity `AIProvider`/`ProviderApiKey`, field `ModelConfig.providerId`, workflow WF-018, menu admin mới "NQDEV Platform → AI Provider", endpoint `/admin/providers/**`. Google Agent Platform vẫn là mặc định, không đổi hành vi cho model hiện có |

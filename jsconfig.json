@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@packages/*": ["packages/*"]
+    },
+    "checkJs": false
+  },
+  "exclude": ["node_modules", "public/uploads", ".yarn"]
+}

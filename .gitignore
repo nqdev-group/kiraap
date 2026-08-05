@@ -10,3 +10,11 @@ public/uploads/temp/*
 !public/uploads/audios/.gitkeep
 !public/uploads/temp/.gitkeep
 .DS_Store
+
+# nqdev custom ignore
+*.zip
+*.gz
+_test_*.js
+_debug_*.log
+.playwright-mcp/
+logs/
