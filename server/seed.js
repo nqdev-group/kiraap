@@ -166,14 +166,6 @@ async function seed() {
                 systemPrompt: 'Bạn là Kira Agent Platform, một trợ lý AI thông minh, thân thiện và hữu ích.',
                 parameters: { aspectRatio: '1:1' }
             },
-            {
-                category: 'image',
-                modelId: '9r-route-combo-free',
-                displayName: '9router - Combo Free',
-                isDefault: false,
-                systemPrompt: 'Bạn là Kira Agent Platform, một trợ lý AI thông minh, thân thiện và hữu ích.',
-                parameters: { aspectRatio: '1:1' }
-            },
 
             // --- Video Generation Models ---
             {
@@ -204,13 +196,6 @@ async function seed() {
                 isDefault: false,
                 parameters: { aspectRatio: '16:9', durationSeconds: 4 }
             },
-            {
-                category: 'video',
-                modelId: '9r-route-combo-free',
-                displayName: '9router - Combo Free',
-                isDefault: false,
-                parameters: { aspectRatio: '16:9', durationSeconds: 4 }
-            },
 
             // --- Text-to-Speech Models ---
             {
@@ -234,13 +219,6 @@ async function seed() {
                 isDefault: false,
                 parameters: { voiceName: 'alloy' }
             },
-            {
-                category: 'tts',
-                modelId: '9r-route-combo-free',
-                displayName: '9router - Combo Free',
-                isDefault: false,
-                parameters: { voiceName: 'alloy' }
-            }
         ];
 
         for (const model of defaultModels) {
