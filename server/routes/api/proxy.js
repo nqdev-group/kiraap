@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const proxyAuth = require('../../middleware/proxyAuth');
 const agentPlatform = require('../../services/agentPlatform');
+const tokenCounter = require('../../services/tokenCounter');
 const ModelConfig = require('../../models/ModelConfig');
 const { v4: uuidv4 } = require('uuid');
 const logger = require('@packages/logger/index.js');
@@ -163,6 +164,10 @@ router.post('/chat/completions', async (req, res) => {
 
             const chatId = 'chatcmpl-' + uuidv4().replace(/-/g, '').substring(0, 29);
             const created = Math.floor(Date.now() / 1000);
+            const startTime = Date.now();
+            let fullText = '';
+            let tokenInput = 0;
+            let tokenOutput = 0;
 
             try {
                 const apiResponse = await agentPlatform.generateTextStream({
@@ -211,6 +216,7 @@ router.post('/chat/completions', async (req, res) => {
                                 const parsed = JSON.parse(jsonStr);
                                 const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text || '';
                                 if (text) {
+                                    fullText += text;
                                     const chunk = {
                                         id: chatId,
                                         object: 'chat.completion.chunk',
@@ -223,6 +229,11 @@ router.post('/chat/completions', async (req, res) => {
                                         }]
                                     };
                                     res.write(`data: ${JSON.stringify(chunk)}\n\n`);
+                                }
+                                if (parsed.usageMetadata) {
+                                    const usage = tokenCounter.parseUsageMetadata(parsed);
+                                    tokenInput = usage.tokenInput;
+                                    tokenOutput = usage.tokenOutput;
                                 }
                             } catch (e) { /* skip invalid JSON */ }
                         }
@@ -242,6 +253,7 @@ router.post('/chat/completions', async (req, res) => {
                                 const parsed = JSON.parse(jsonStr);
                                 const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text || '';
                                 if (text) {
+                                    fullText += text;
                                     const chunkObj = {
                                         id: chatId,
                                         object: 'chat.completion.chunk',
@@ -255,10 +267,29 @@ router.post('/chat/completions', async (req, res) => {
                                     };
                                     res.write(`data: ${JSON.stringify(chunkObj)}\n\n`);
                                 }
+                                if (parsed.usageMetadata) {
+                                    const usage = tokenCounter.parseUsageMetadata(parsed);
+                                    tokenInput = usage.tokenInput;
+                                    tokenOutput = usage.tokenOutput;
+                                }
                             } catch (e) { /* skip invalid JSON */ }
                         }
                     }
                 }
+
+                tokenCounter.logUsage({
+                    userId: req.user._id,
+                    username: req.user.username,
+                    modelUsed,
+                    category: 'text',
+                    prompt: prompt?.substring(0, 1000),
+                    responseContent: fullText?.substring(0, 2000),
+                    tokenInput,
+                    tokenOutput,
+                    apiKeyName: req.apiKey?.name,
+                    responseTime: Date.now() - startTime,
+                    status: 'success'
+                });
 
                 // Final chunk
                 const finalChunk = {

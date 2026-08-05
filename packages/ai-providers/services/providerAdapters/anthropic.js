@@ -78,12 +78,27 @@ async function generateTextStream({ prompt, history, systemPrompt, provider, key
         throw new Error(errorData.error?.message || `Provider API Error (${response.status})`);
     }
 
-    const stream = createGeminiSSEStream(response.body, (parsed) => {
-        if (parsed.type === 'content_block_delta' && parsed.delta?.type === 'text_delta') {
-            return parsed.delta.text || '';
+    const stream = createGeminiSSEStream(
+        response.body,
+        (parsed) => {
+            if (parsed.type === 'content_block_delta' && parsed.delta?.type === 'text_delta') {
+                return parsed.delta.text || '';
+            }
+            return '';
+        },
+        // Anthropic Messages API streaming: input token luôn có ở message_start, output token
+        // cập nhật dần (giá trị cuối cùng là chính xác) ở message_delta — đây là format chuẩn ổn
+        // định của chính Anthropic, không phải flag tuỳ chọn như OpenAI's stream_options.
+        (parsed) => {
+            if (parsed.type === 'message_start') {
+                return { tokenInput: parsed.message?.usage?.input_tokens };
+            }
+            if (parsed.type === 'message_delta') {
+                return { tokenOutput: parsed.usage?.output_tokens };
+            }
+            return null;
         }
-        return '';
-    });
+    );
     return { stream };
 }
 

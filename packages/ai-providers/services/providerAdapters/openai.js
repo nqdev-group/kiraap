@@ -63,7 +63,11 @@ async function generateTextStream({ prompt, history, systemPrompt, provider, key
         messages: toOpenAIMessages({ prompt, history, systemPrompt }),
         temperature: model.parameters?.temperature ?? 0.7,
         max_tokens: model.parameters?.maxOutputTokens || undefined,
-        stream: true
+        stream: true,
+        // Không phải mọi backend OpenAI-compatible hỗ trợ field này — nếu không hỗ trợ,
+        // provider chỉ đơn giản bỏ qua (đã verify với 9router), extractUsage bên dưới
+        // sẽ luôn nhận null và usage vẫn log 0 như trước, không có regression.
+        stream_options: { include_usage: true }
     };
 
     const response = await fetch(endpoint, {
@@ -77,7 +81,11 @@ async function generateTextStream({ prompt, history, systemPrompt, provider, key
         throw new Error(errorData.error?.message || `Provider API Error (${response.status})`);
     }
 
-    const stream = createGeminiSSEStream(response.body, (parsed) => parsed.choices?.[0]?.delta?.content || '');
+    const stream = createGeminiSSEStream(
+        response.body,
+        (parsed) => parsed.choices?.[0]?.delta?.content || '',
+        (parsed) => parsed.usage ? { tokenInput: parsed.usage.prompt_tokens, tokenOutput: parsed.usage.completion_tokens } : null
+    );
     return { stream };
 }
 

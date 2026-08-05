@@ -1,18 +1,45 @@
 /**
  * Chuyển 1 SSE stream tuỳ ý (OpenAI/Anthropic...) thành 1 ReadableStream
  * phát ra đúng JSON shape Gemini mà server/routes/api/chat.js và
- * server/routes/api/proxy.js đang tự parse (candidates[0].content.parts[0].text).
+ * server/routes/api/proxy.js đang tự parse (candidates[0].content.parts[0].text,
+ * usageMetadata).
  *
  * Nhờ vậy 2 file đó không cần biết/sửa gì khi nguồn là custom provider.
  *
  * @param {ReadableStream} upstreamBody - response.body của fetch tới provider ngoài
  * @param {(parsedJson: any) => string} extractText - lấy text delta từ 1 JSON event của provider gốc
+ * @param {(parsedJson: any) => ({tokenInput?: number, tokenOutput?: number}|null)} [extractUsage] -
+ *   lấy token usage (nếu có) từ 1 JSON event — optional, provider không hỗ trợ thì bỏ qua tham số này
  */
-function createGeminiSSEStream(upstreamBody, extractText) {
+function createGeminiSSEStream(upstreamBody, extractText, extractUsage) {
     const decoder = new TextDecoder();
     const encoder = new TextEncoder();
     const reader = upstreamBody.getReader();
     let buffer = '';
+    // Usage thường đến rải rác qua nhiều event khác nhau (vd. Anthropic: tokenInput ở
+    // message_start, tokenOutput ở message_delta) — merge nông, chỉ ghi đè field nào
+    // thật sự có giá trị mới, không để 1 event chỉ có tokenOutput xoá mất tokenInput đã gom trước đó.
+    let usage = null;
+
+    function mergeUsage(partial) {
+        if (!partial) return;
+        usage = usage || {};
+        if (partial.tokenInput !== undefined) usage.tokenInput = partial.tokenInput;
+        if (partial.tokenOutput !== undefined) usage.tokenOutput = partial.tokenOutput;
+    }
+
+    function enqueueUsageEvent(controller) {
+        if (!usage) return;
+        const chunk = {
+            candidates: [{ content: { parts: [{ text: '' }] } }],
+            usageMetadata: {
+                promptTokenCount: usage.tokenInput || 0,
+                candidatesTokenCount: usage.tokenOutput || 0,
+                totalTokenCount: (usage.tokenInput || 0) + (usage.tokenOutput || 0)
+            }
+        };
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`));
+    }
 
     return new ReadableStream({
         // pull() không được return cho tới khi enqueue được ít nhất 1 chunk (hoặc upstream kết thúc) —
@@ -22,6 +49,10 @@ function createGeminiSSEStream(upstreamBody, extractText) {
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) {
+                    // Emit usageMetadata (nếu gom được) như 1 event Gemini-shape cuối cùng trước khi
+                    // đóng — chat.js/proxy.js đã tự đọc field này (dùng chung logic với Gemini native
+                    // streaming), không cần sửa gì ở 2 file đó.
+                    enqueueUsageEvent(controller);
                     controller.close();
                     return;
                 }
@@ -51,6 +82,10 @@ function createGeminiSSEStream(upstreamBody, extractText) {
                     // và stream kết thúc rỗng, không có gì hiển thị cho người dùng mà cũng không báo lỗi.
                     if (parsed.error) {
                         throw new Error(parsed.error.message || JSON.stringify(parsed.error));
+                    }
+
+                    if (extractUsage) {
+                        mergeUsage(extractUsage(parsed));
                     }
 
                     const text = extractText(parsed);
