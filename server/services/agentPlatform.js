@@ -466,7 +466,7 @@ class AgentPlatformService {
      * Khởi tạo tạo video (Long Running Operation)
      */
     async initiateVideo({ prompt, refBase64, refMimeType, aspectRatio = '16:9', durationSeconds = 6, modelId, user }) {
-        const apiKeyInfo = await apiKeyManager.getNextKey();
+        const startTime = Date.now();
 
         let model;
         if (modelId) {
@@ -478,6 +478,14 @@ class AgentPlatformService {
         if (!model) {
             throw new Error('Không có model video nào được cấu hình');
         }
+
+        // === Custom AI Provider (OpenAI/Anthropic compatible) — xem packages/ai-providers/ ===
+        if (model.providerId) {
+            return aiProvidersBridge.generateVideo({ prompt, aspectRatio, durationSeconds, model, user, startTime });
+        }
+
+        // === Google Agent Platform (mặc định, không đổi) ===
+        const apiKeyInfo = await apiKeyManager.getNextKey();
 
         const projectNumber = apiKeyInfo.projectNumber;
         if (!projectNumber) {
@@ -615,6 +623,12 @@ class AgentPlatformService {
             model = await this.getDefaultModel('video');
         }
 
+        // === Custom AI Provider (OpenAI/Anthropic compatible) — xem packages/ai-providers/ ===
+        if (model.providerId) {
+            return aiProvidersBridge.pollVideo({ operationName, model });
+        }
+
+        // === Google Agent Platform (mặc định, không đổi) ===
         const endpoint = `https://us-central1-aiplatform.googleapis.com/v1/projects/${projectNumber}/locations/us-central1/publishers/google/models/${model.modelId}:fetchPredictOperation?key=${apiKey}`;
 
         const response = await fetch(endpoint, {
@@ -671,7 +685,6 @@ class AgentPlatformService {
      */
     async generateTTS({ text, voiceName = 'Kore', modelId, user }) {
         const startTime = Date.now();
-        const apiKeyInfo = await apiKeyManager.getNextKey();
 
         let model;
         if (modelId) {
@@ -684,6 +697,13 @@ class AgentPlatformService {
             throw new Error('Không có model TTS nào được cấu hình');
         }
 
+        // === Custom AI Provider (OpenAI/Anthropic compatible) — xem packages/ai-providers/ ===
+        if (model.providerId) {
+            return aiProvidersBridge.generateTTS({ text, voiceName, model, user, startTime });
+        }
+
+        // === Google Agent Platform (mặc định, không đổi) ===
+        const apiKeyInfo = await apiKeyManager.getNextKey();
         const endpoint = `https://aiplatform.googleapis.com/v1/publishers/google/models/${model.modelId}:generateContent?key=${apiKeyInfo.key}`;
 
         const voiceMap = {

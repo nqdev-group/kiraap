@@ -134,4 +134,115 @@ async function generateImage({ prompt, aspectRatio, provider, keyInfo, model }) 
     };
 }
 
-module.exports = { generateText, generateTextStream, generateImage };
+/**
+ * Chuyển text thành giọng nói (TTS) qua endpoint chuẩn OpenAI /audio/speech.
+ * Theo chuẩn OpenAI thật, endpoint này trả về audio nhị phân (mặc định mp3)
+ * trực tiếp trong response body — KHÔNG phải JSON — khác với các hàm khác trong
+ * file này. Chưa verify với key Kira thật (xem Unknown 1 trong
+ * plans/2026-08-05-kira-provider-full-parity-planning.md); nếu provider thật
+ * trả JSON+base64 thay vì binary, cần sửa lại đoạn đọc response bên dưới.
+ */
+async function generateTTS({ text, voiceName, provider, keyInfo, model }) {
+    const endpoint = `${provider.baseUrl.replace(/\/$/, '')}/audio/speech`;
+    const payload = {
+        model: model.modelId,
+        input: text,
+        voice: voiceName || model.parameters?.voiceName || 'alloy'
+    };
+
+    const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: authHeaders(keyInfo.key, provider.extraHeaders),
+        body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error?.message || `Provider API Error (${response.status})`);
+    }
+
+    const buffer = Buffer.from(await response.arrayBuffer());
+    const mimeType = response.headers.get('content-type') || 'audio/mpeg';
+
+    return {
+        data: buffer.toString('base64'),
+        mimeType,
+        tokenInput: 0,
+        tokenOutput: 0
+    };
+}
+
+/**
+ * Khởi tạo tạo video (bước 1/2, async). Shape request/response CHƯA được verify
+ * với key Kira thật (Unknown 2 trong plan) — field name giả định theo quy ước
+ * OpenAI-style (snake_case) và theo mô tả sơ lược của doc Kira ("submit → poll
+ * /videos/operations/:uuid"). Cần test thật và chỉnh lại field name nếu sai.
+ */
+async function generateVideo({ prompt, aspectRatio, durationSeconds, provider, keyInfo, model }) {
+    const endpoint = `${provider.baseUrl.replace(/\/$/, '')}/videos/generations`;
+
+    const payload = {
+        model: model.modelId,
+        prompt,
+        aspect_ratio: aspectRatio || model.parameters?.aspectRatio || '16:9',
+        duration_seconds: parseInt(durationSeconds || model.parameters?.durationSeconds || 6)
+    };
+
+    const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: authHeaders(keyInfo.key, provider.extraHeaders),
+        body: JSON.stringify(payload)
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+        throw new Error(data.error?.message || `Provider API Error (${response.status})`);
+    }
+
+    const operationId = data.id || data.operation_id || data.uuid || data.name;
+    if (!operationId) {
+        throw new Error('Provider không trả về operation id cho video');
+    }
+
+    return { operationId };
+}
+
+/**
+ * Poll trạng thái video (bước 2/2). Cùng ghi chú "chưa verify" như generateVideo ở trên.
+ */
+async function pollVideoOperation({ operationId, provider, keyInfo }) {
+    const endpoint = `${provider.baseUrl.replace(/\/$/, '')}/videos/operations/${operationId}`;
+
+    const response = await fetch(endpoint, {
+        method: 'GET',
+        headers: authHeaders(keyInfo.key, provider.extraHeaders)
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+        throw new Error(data.error?.message || `Provider API Error (${response.status})`);
+    }
+
+    const status = data.status || (data.done ? 'completed' : 'processing');
+    if (status === 'failed' || status === 'error') {
+        throw new Error(data.error?.message || 'Tạo video thất bại');
+    }
+
+    const done = data.done === true || status === 'completed' || status === 'succeeded';
+    if (!done) {
+        return { done: false };
+    }
+
+    const result = data.data?.[0] || data.result || data;
+    const videoUrl = result.video_url || result.url || null;
+    const videoBase64 = result.video_base64 || result.b64_json || null;
+    const mimeType = result.mime_type || data.mime_type || 'video/mp4';
+
+    if (!videoUrl && !videoBase64) {
+        throw new Error('Provider không trả về dữ liệu video hợp lệ');
+    }
+
+    return { done: true, videoUrl, videoBase64, mimeType };
+}
+
+module.exports = { generateText, generateTextStream, generateImage, generateTTS, generateVideo, pollVideoOperation };

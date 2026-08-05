@@ -176,4 +176,165 @@ async function generateImage({ prompt, aspectRatio, model, user, startTime }) {
     }
 }
 
-module.exports = { generateText, generateTextStream, generateImage };
+/**
+ * Chuyển text thành giọng nói qua Custom AI Provider. Tự lưu file + Media.create +
+ * tokenCounter.logUsage (self-contained, giống cách generateImage ở trên đang làm —
+ * không tái dùng logic lưu-file/DB của agentPlatform.js's Google-path vì logic đó
+ * gắn chặt với xử lý PCM/WAV riêng của Google).
+ */
+async function generateTTS({ text, voiceName, model, user, startTime }) {
+    const { keyInfo, adapter, provider } = await resolveProvider(model);
+    if (!adapter.generateTTS) {
+        throw new Error(`Provider loại "${provider.type}" không hỗ trợ TTS`);
+    }
+    try {
+        const result = await adapter.generateTTS({ text, voiceName, provider, keyInfo, model });
+
+        const ext = result.mimeType?.includes('wav') ? 'wav' : (result.mimeType?.includes('ogg') ? 'ogg' : 'mp3');
+        const fileName = `audio_${uuidv4()}.${ext}`;
+        const filePath = path.join('uploads', 'audios', fileName);
+        const absolutePath = path.join(__dirname, '..', '..', '..', 'public', filePath);
+
+        const buffer = Buffer.from(result.data, 'base64');
+        fs.writeFileSync(absolutePath, buffer);
+
+        const fileSize = buffer.length;
+        const responseTime = Date.now() - startTime;
+
+        if (user) {
+            await Media.create({
+                userId: user._id || user.id,
+                type: 'audio',
+                filePath: '/' + filePath,
+                fileName,
+                originalName: fileName,
+                fileSize,
+                mimeType: result.mimeType,
+                prompt: text?.substring(0, 500),
+                modelUsed: model.modelId
+            });
+
+            tokenCounter.logUsage({
+                userId: user._id || user.id,
+                username: user.username,
+                modelUsed: model.modelId,
+                category: 'tts',
+                prompt: text?.substring(0, 1000),
+                responseContent: '/' + filePath,
+                tokenInput: result.tokenInput,
+                tokenOutput: result.tokenOutput,
+                apiKeyName: keyInfo.name,
+                responseTime,
+                status: 'success'
+            });
+        }
+
+        return {
+            audioUrl: '/' + filePath,
+            mimeType: result.mimeType,
+            modelUsed: model.modelId,
+            tokenInput: result.tokenInput,
+            tokenOutput: result.tokenOutput,
+            responseTime
+        };
+    } catch (error) {
+        await providerKeyManager.markKeyError(keyInfo._id, error.message);
+        if (user) {
+            tokenCounter.logUsage({
+                userId: user._id || user.id,
+                username: user.username,
+                modelUsed: model.modelId,
+                category: 'tts',
+                prompt: text?.substring(0, 500),
+                apiKeyName: keyInfo.name,
+                responseTime: Date.now() - startTime,
+                status: 'error',
+                errorMessage: error.message
+            });
+        }
+        throw error;
+    }
+}
+
+/**
+ * Khởi tạo tạo video qua Custom AI Provider (bước 1/2). Không trả apiKey/projectNumber
+ * vì đó là field riêng của Google — để undefined, server/routes/api/video.js đã
+ * tolerant với việc thiếu 2 field này khi trả JSON về client.
+ */
+async function generateVideo({ prompt, aspectRatio, durationSeconds, model, user, startTime }) {
+    const { keyInfo, adapter, provider } = await resolveProvider(model);
+    if (!adapter.generateVideo) {
+        throw new Error(`Provider loại "${provider.type}" không hỗ trợ tạo video`);
+    }
+    try {
+        const result = await adapter.generateVideo({ prompt, aspectRatio, durationSeconds, provider, keyInfo, model });
+        return {
+            operationName: result.operationId,
+            modelUsed: model.modelId,
+            apiKeyName: keyInfo.name
+        };
+    } catch (error) {
+        await providerKeyManager.markKeyError(keyInfo._id, error.message);
+        if (user) {
+            tokenCounter.logUsage({
+                userId: user._id || user.id,
+                username: user.username,
+                modelUsed: model.modelId,
+                category: 'video',
+                prompt: prompt?.substring(0, 500),
+                apiKeyName: keyInfo.name,
+                responseTime: Date.now() - startTime,
+                status: 'error',
+                errorMessage: error.message
+            });
+        }
+        throw error;
+    }
+}
+
+/**
+ * Poll trạng thái video qua Custom AI Provider (bước 2/2). Tự resolve lại
+ * ProviderApiKey qua providerKeyManager (mỗi lần poll là 1 request mới, không
+ * tái dùng keyInfo của lần submit). Tự tải + lưu file nếu done, trả đúng shape
+ * {done, videoUrl, mimeType, fileName, fileSize} mà server/routes/api/video.js đọc.
+ */
+async function pollVideo({ operationName, model }) {
+    const { keyInfo, adapter, provider } = await resolveProvider(model);
+    if (!adapter.pollVideoOperation) {
+        throw new Error(`Provider loại "${provider.type}" không hỗ trợ tạo video`);
+    }
+    try {
+        const result = await adapter.pollVideoOperation({ operationId: operationName, provider, keyInfo });
+        if (!result.done) {
+            return { done: false };
+        }
+
+        let buffer;
+        let mimeType = result.mimeType || 'video/mp4';
+        if (result.videoBase64) {
+            buffer = Buffer.from(result.videoBase64, 'base64');
+        } else {
+            const videoRes = await fetch(result.videoUrl);
+            buffer = Buffer.from(await videoRes.arrayBuffer());
+            mimeType = videoRes.headers.get('content-type') || mimeType;
+        }
+
+        const fileName = `vid_${uuidv4()}.mp4`;
+        const filePath = path.join('uploads', 'videos', fileName);
+        const absolutePath = path.join(__dirname, '..', '..', '..', 'public', filePath);
+        fs.writeFileSync(absolutePath, buffer);
+
+        return {
+            done: true,
+            videoUrl: '/' + filePath,
+            mimeType,
+            fileName,
+            fileSize: buffer.length
+        };
+    } catch (error) {
+        await providerKeyManager.markKeyError(keyInfo._id, error.message);
+        throw error;
+    }
+}
+
+module.exports = { generateText, generateTextStream, generateImage, generateTTS, generateVideo, pollVideo };

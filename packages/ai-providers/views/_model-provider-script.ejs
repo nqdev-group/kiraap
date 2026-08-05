@@ -9,6 +9,6 @@ function providerSelectOptions(selectedId) {
 }
 function toggleProviderGroup(catSelectId, groupId) {
     var cat = document.getElementById(catSelectId).value;
-    document.getElementById(groupId).style.display = (cat === 'text' || cat === 'image') ? '' : 'none';
+    document.getElementById(groupId).style.display = (cat === 'text' || cat === 'image' || cat === 'tts' || cat === 'video') ? '' : 'none';
 }
 </script>

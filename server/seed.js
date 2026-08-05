@@ -64,6 +64,35 @@ async function seed() {
             logger.warn('⚠️  Bỏ qua seed API key cho 9router: thiếu biến môi trường NINEROUTER_API_KEY');
         }
 
+        let kiraProviderId = null;
+        const kiraApiKey = process.env.KIRA_API_KEY;
+
+        let kiraProvider = await AIProvider.findOne({ name: 'kira' });
+        if (!kiraProvider) {
+            kiraProvider = await AIProvider.create({
+                name: 'kira',
+                type: 'openai',
+                baseUrl: 'https://kiraai.vn/api/v1',
+                keyRotationStrategy: 'sequential'
+            });
+            logger.info('✅ Đã tạo AIProvider: kira');
+        } else {
+            logger.info('ℹ️  AIProvider đã tồn tại: kira');
+        }
+        kiraProviderId = kiraProvider._id;
+
+        if (kiraApiKey) {
+            const existingKey = await ProviderApiKey.findOne({ providerId: kiraProviderId, name: 'unit-test' });
+            if (!existingKey) {
+                await ProviderApiKey.create({ providerId: kiraProviderId, name: 'unit-test', key: kiraApiKey });
+                logger.info('✅ Đã thêm API key "unit-test" cho kira');
+            } else {
+                logger.info('ℹ️  API key "unit-test" đã tồn tại cho kira');
+            }
+        } else {
+            logger.warn('⚠️  Bỏ qua seed API key cho kira: thiếu biến môi trường KIRA_API_KEY');
+        }
+
         // === Seed Default Models ===
         const defaultModels = [
             // --- Text / Chat Models ---
@@ -132,6 +161,15 @@ async function seed() {
                 providerId: nineRouterProviderId,
                 parameters: { temperature: 0.7, maxOutputTokens: 4096 }
             },
+            {
+                category: 'text',
+                modelId: 'kira-3.5-flash',
+                displayName: 'Kira 3.5 Flash',
+                isDefault: false,
+                systemPrompt: 'Bạn là Kira Agent Platform, một trợ lý AI thông minh, thân thiện và hữu ích.',
+                providerId: kiraProviderId,
+                parameters: { temperature: 0.7, maxOutputTokens: 8192 }
+            },
 
 
             // --- Image Generation Models ---
@@ -166,6 +204,22 @@ async function seed() {
                 systemPrompt: 'Bạn là Kira Agent Platform, một trợ lý AI thông minh, thân thiện và hữu ích.',
                 parameters: { aspectRatio: '1:1' }
             },
+            {
+                category: 'image',
+                modelId: 'kira-3.0-image',
+                displayName: 'Kira 3.0 Image',
+                isDefault: false,
+                providerId: kiraProviderId,
+                parameters: { aspectRatio: '1:1' }
+            },
+            {
+                category: 'image',
+                modelId: 'kira-2.0-image',
+                displayName: 'Kira 2.0 Image',
+                isDefault: false,
+                providerId: kiraProviderId,
+                parameters: { aspectRatio: '1:1' }
+            },
 
             // --- Video Generation Models ---
             {
@@ -196,6 +250,22 @@ async function seed() {
                 isDefault: false,
                 parameters: { aspectRatio: '16:9', durationSeconds: 4 }
             },
+            {
+                category: 'video',
+                modelId: 'kira-3.0-video',
+                displayName: 'Kira 3.0 Video',
+                isDefault: false,
+                providerId: kiraProviderId,
+                parameters: { aspectRatio: '16:9', durationSeconds: 6 }
+            },
+            {
+                category: 'video',
+                modelId: 'kira-3.0-video-flash',
+                displayName: 'Kira 3.0 Video Flash',
+                isDefault: false,
+                providerId: kiraProviderId,
+                parameters: { aspectRatio: '16:9', durationSeconds: 6 }
+            },
 
             // --- Text-to-Speech Models ---
             {
@@ -218,6 +288,22 @@ async function seed() {
                 displayName: 'Gemini 2.5 Flash TTS Preview',
                 isDefault: false,
                 parameters: { voiceName: 'alloy' }
+            },
+            {
+                category: 'tts',
+                modelId: 'kira-3.0-flash-tts',
+                displayName: 'Kira 3.0 Flash TTS',
+                isDefault: false,
+                providerId: kiraProviderId,
+                parameters: { voiceName: 'Kore' }
+            },
+            {
+                category: 'tts',
+                modelId: 'kira-2.0-flash-tts',
+                displayName: 'Kira 2.0 Flash TTS',
+                isDefault: false,
+                providerId: kiraProviderId,
+                parameters: { voiceName: 'Kore' }
             },
         ];
 

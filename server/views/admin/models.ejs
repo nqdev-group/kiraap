@@ -58,7 +58,7 @@ async function saveModel() {
     else showToast(res?.message || 'Lỗi', 'error');
 }
 function editModel(m) {
-    const showProvider = m.category === 'text' || m.category === 'image';
+    const showProvider = m.category === 'text' || m.category === 'image' || m.category === 'tts' || m.category === 'video';
     showModal('Sửa mô hình',
         '<div class="form-group"><label>Model ID</label><input type="text" id="editModelId" value="' + m.modelId + '"></div>' +
         '<div class="form-group"><label>Tên hiển thị</label><input type="text" id="editModelName" value="' + m.displayName + '"></div>' +
