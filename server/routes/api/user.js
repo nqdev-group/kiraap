@@ -4,6 +4,7 @@ const auth = require('../../middleware/auth');
 const User = require('../../models/User');
 
 const Media = require('../../models/Media');
+const logger = require('@packages/logger/index.js');
 
 /**
  * GET /api/user/profile
@@ -57,7 +58,7 @@ router.put('/profile', auth, async (req, res) => {
             }
         });
     } catch (error) {
-        console.error('Profile update error:', error);
+        logger.error('Profile update error:', error);
         res.status(500).json({
             success: false,
             message: 'Lỗi cập nhật thông tin'
@@ -93,7 +94,7 @@ router.get('/media', auth, async (req, res) => {
             }
         });
     } catch (error) {
-        console.error('Get user media error:', error);
+        logger.error('Get user media error:', error);
         res.status(500).json({
             success: false,
             message: 'Lỗi lấy danh sách media'
@@ -120,7 +121,7 @@ router.delete('/media/:id', auth, async (req, res) => {
             message: 'Đã xoá tệp media'
         });
     } catch (error) {
-        console.error('Delete user media error:', error);
+        logger.error('Delete user media error:', error);
         res.status(500).json({
             success: false,
             message: 'Lỗi xoá tệp media'

@@ -9,6 +9,7 @@ const agentPlatform = require('../../services/agentPlatform');
 const tokenCounter = require('../../services/tokenCounter');
 const Conversation = require('../../models/Conversation');
 const Message = require('../../models/Message');
+const logger = require('@packages/logger/index.js');
 
 // Multer config cho file đính kèm
 const upload = multer({
@@ -207,7 +208,7 @@ router.post('/', auth, aiLimiter, upload.array('files', 5), async (req, res) => 
         }
 
     } catch (error) {
-        console.error('Chat error:', error);
+        logger.error('Chat error:', error);
         // Nếu chưa bắt đầu stream
         if (!res.headersSent) {
             res.status(500).json({

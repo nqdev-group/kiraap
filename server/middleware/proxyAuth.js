@@ -1,5 +1,6 @@
 const UserApiKey = require('../models/UserApiKey');
 const User = require('../models/User');
+const logger = require('@packages/logger/index.js');
 
 /**
  * Middleware xác thực Proxy API bằng User API Key
@@ -65,14 +66,14 @@ const proxyAuth = async (req, res, next) => {
         UserApiKey.findByIdAndUpdate(userApiKey._id, {
             $inc: { usageCount: 1 },
             lastUsedAt: new Date()
-        }).catch(err => console.error('Lỗi cập nhật usage:', err));
+        }).catch(err => logger.error('Lỗi cập nhật usage:', err));
 
         // Gắn vào request
         req.user = user;
         req.apiKey = userApiKey;
         next();
     } catch (error) {
-        console.error('Proxy auth error:', error);
+        logger.error('Proxy auth error:', error);
         return res.status(500).json({
             error: {
                 message: 'Lỗi xác thực API key',

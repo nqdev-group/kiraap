@@ -8,6 +8,7 @@ const { aiLimiter } = require('../../middleware/rateLimiter');
 const agentPlatform = require('../../services/agentPlatform');
 const Conversation = require('../../models/Conversation');
 const Message = require('../../models/Message');
+const logger = require('@packages/logger/index.js');
 
 // Multer cho ảnh tham chiếu
 const upload = multer({
@@ -117,7 +118,7 @@ router.post('/', auth, aiLimiter, upload.array('refImages', 3), async (req, res)
         });
 
     } catch (error) {
-        console.error('Image generation error:', error);
+        logger.error('Image generation error:', error);
         res.status(500).json({
             success: false,
             message: error.message || 'Lỗi tạo ảnh'

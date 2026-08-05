@@ -1,12 +1,14 @@
+require('module-alias/register');
 require('dotenv').config();
 const express = require('express');
 const path = require('path');
 const cors = require('cors');
 const helmet = require('helmet');
-const morgan = require('morgan');
 const expressLayouts = require('express-ejs-layouts');
 const cookieParser = require('cookie-parser');
 const connectDB = require('./config/database');
+const logger = require('@packages/logger/index.js');
+const httpLogger = require('@packages/logger/httpLogger.js');
 
 // Import routes
 const authRoutes = require('./routes/auth');
@@ -23,6 +25,7 @@ const adminModelsRoutes = require('./routes/admin/models');
 const adminMediaRoutes = require('./routes/admin/media');
 const adminLogsRoutes = require('./routes/admin/logs');
 const adminUserApiKeysRoutes = require('./routes/admin/userApiKeys');
+const adminProvidersRoutes = require('@packages/ai-providers/routes/providers.js');
 const userApiKeysRoutes = require('./routes/api/apiKeys');
 const modelsRoutes = require('./routes/api/models');
 const proxyRoutes = require('./routes/api/proxy');
@@ -39,17 +42,21 @@ app.use(helmet({
     contentSecurityPolicy: false,
     crossOriginEmbedderPolicy: false
 }));
-app.use(morgan('dev'));
+app.use(httpLogger);
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(cookieParser());
 
 // === Static files ===
 app.use(express.static(path.join(__dirname, '..', 'public')));
+app.use('/packages/ai-providers', express.static(path.join(__dirname, '..', 'packages', 'ai-providers', 'public')));
 
 // === EJS Template Engine (Admin) ===
 app.set('view engine', 'ejs');
-app.set('views', path.join(__dirname, 'views'));
+app.set('views', [
+    path.join(__dirname, 'views'),
+    path.join(__dirname, '..', 'packages', 'ai-providers', 'views')
+]);
 app.use(expressLayouts);
 app.set('layout', 'layouts/admin');
 
@@ -75,6 +82,7 @@ app.use('/admin/models', adminModelsRoutes);
 app.use('/admin/media', adminMediaRoutes);
 app.use('/admin/logs', adminLogsRoutes);
 app.use('/admin/user-api-keys', adminUserApiKeysRoutes);
+app.use('/admin/providers', adminProvidersRoutes);
 
 // === User Pages (SSR) ===
 app.get('/', (req, res) => {
@@ -104,7 +112,7 @@ app.get('/docs', (req, res) => {
 
 // === Error Handler ===
 app.use((err, req, res, next) => {
-    console.error('Server Error:', err);
+    logger.error('Server Error', { message: err.message, stack: err.stack });
     res.status(err.status || 500).json({
         success: false,
         message: err.message || 'Lỗi server nội bộ'
@@ -128,9 +136,9 @@ app.use((req, res) => {
 
 // === Start Server ===
 app.listen(PORT, () => {
-    console.log(`\n🚀 Kira Agent Platform đang chạy tại: http://localhost:${PORT}`);
-    console.log(`📊 Admin Panel: http://localhost:${PORT}/admin`);
-    console.log(`💬 User App: http://localhost:${PORT}\n`);
+    logger.info(`🚀 Kira Agent Platform đang chạy tại: http://localhost:${PORT}`);
+    logger.info(`📊 Admin Panel: http://localhost:${PORT}/admin`);
+    logger.info(`💬 User App: http://localhost:${PORT}`);
 });
 
 module.exports = app;

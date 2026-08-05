@@ -8,6 +8,7 @@ const { aiLimiter } = require('../../middleware/rateLimiter');
 const agentPlatform = require('../../services/agentPlatform');
 const Conversation = require('../../models/Conversation');
 const Message = require('../../models/Message');
+const logger = require('@packages/logger/index.js');
 
 // Multer cho file text
 const upload = multer({
@@ -109,7 +110,7 @@ router.post('/', auth, aiLimiter, upload.single('textFile'), async (req, res) =>
         });
 
     } catch (error) {
-        console.error('TTS error:', error);
+        logger.error('TTS error:', error);
         res.status(500).json({
             success: false,
             message: error.message || 'Lỗi tạo giọng nói'

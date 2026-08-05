@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const auth = require('../middleware/auth');
 const { authLimiter } = require('../middleware/rateLimiter');
+const logger = require('@packages/logger/index.js');
 
 /**
  * Tạo JWT token
@@ -74,7 +75,7 @@ router.post('/register', authLimiter, async (req, res) => {
                 message: messages.join(', ')
             });
         }
-        console.error('Register error:', error);
+        logger.error('Register error:', error);
         res.status(500).json({
             success: false,
             message: 'Lỗi server, vui lòng thử lại sau'
@@ -145,7 +146,7 @@ router.post('/login', authLimiter, async (req, res) => {
             }
         });
     } catch (error) {
-        console.error('Login error:', error);
+        logger.error('Login error:', error);
         res.status(500).json({
             success: false,
             message: 'Lỗi server, vui lòng thử lại sau'
@@ -206,7 +207,7 @@ router.put('/profile', auth, async (req, res) => {
             }
         });
     } catch (error) {
-        console.error('Profile update error:', error);
+        logger.error('Profile update error:', error);
         res.status(500).json({
             success: false,
             message: 'Lỗi cập nhật thông tin'
@@ -254,7 +255,7 @@ router.put('/password', auth, async (req, res) => {
             message: 'Đổi mật khẩu thành công'
         });
     } catch (error) {
-        console.error('Password change error:', error);
+        logger.error('Password change error:', error);
         res.status(500).json({
             success: false,
             message: 'Lỗi đổi mật khẩu'

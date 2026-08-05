@@ -7,6 +7,7 @@ const AILog = require('../../models/AILog');
 const ApiKey = require('../../models/ApiKey');
 const ModelConfig = require('../../models/ModelConfig');
 const Media = require('../../models/Media');
+const logger = require('@packages/logger/index.js');
 
 /**
  * GET /admin/login
@@ -89,7 +90,7 @@ router.get('/', auth, adminOnly, async (req, res) => {
             recentLogs
         });
     } catch (error) {
-        console.error('Dashboard error:', error);
+        logger.error('Dashboard error:', error);
         res.status(500).send('Lỗi tải dashboard');
     }
 });

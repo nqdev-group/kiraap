@@ -4,6 +4,7 @@ const proxyAuth = require('../../middleware/proxyAuth');
 const agentPlatform = require('../../services/agentPlatform');
 const ModelConfig = require('../../models/ModelConfig');
 const { v4: uuidv4 } = require('uuid');
+const logger = require('@packages/logger/index.js');
 
 // Tất cả proxy routes yêu cầu API key
 router.use(proxyAuth);
@@ -271,7 +272,7 @@ router.post('/chat/completions', async (req, res) => {
                 res.write('data: [DONE]\n\n');
                 res.end();
             } catch (error) {
-                console.error('Proxy stream error:', error);
+                logger.error('Proxy stream error:', error);
                 res.write(`data: ${JSON.stringify({ error: { message: error.message } })}\n\n`);
                 res.end();
             }
@@ -303,7 +304,7 @@ router.post('/chat/completions', async (req, res) => {
             });
         }
     } catch (error) {
-        console.error('Proxy non-stream error:', error);
+        logger.error('Proxy non-stream error:', error);
         res.status(500).json({
             error: { message: error.message, type: 'server_error' }
         });

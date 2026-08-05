@@ -1,8 +1,12 @@
+require('module-alias/register');
 require('dotenv').config();
 const mongoose = require('mongoose');
 const User = require('./models/User');
 const ModelConfig = require('./models/ModelConfig');
 const Voice = require('./models/Voice');
+const AIProvider = require('@packages/ai-providers/models/AIProvider.js');
+const ProviderApiKey = require('@packages/ai-providers/models/ProviderApiKey.js');
+const logger = require('@packages/logger/index.js');
 
 /**
  * Seed dữ liệu mặc định: Admin account + Default models
@@ -10,7 +14,7 @@ const Voice = require('./models/Voice');
 async function seed() {
     try {
         await mongoose.connect(process.env.MONGODB_URI);
-        console.log('✅ Đã kết nối MongoDB');
+        logger.info('✅ Đã kết nối MongoDB');
 
         // === Seed Admin ===
         const adminEmail = process.env.ADMIN_EMAIL || 'admin@kiraai.vn';
@@ -25,9 +29,39 @@ async function seed() {
                 displayName: 'Admin',
                 role: 'admin'
             });
-            console.log(`✅ Đã tạo tài khoản admin: ${adminEmail}`);
+            logger.info(`✅ Đã tạo tài khoản admin: ${adminEmail}`);
         } else {
-            console.log(`ℹ️  Admin đã tồn tại: ${adminEmail}`);
+            logger.info(`ℹ️  Admin đã tồn tại: ${adminEmail}`);
+        }
+
+        // === Seed AI Providers (Custom OpenAI/Anthropic Compatible) ===
+        let nineRouterProviderId = null;
+        const nineRouterApiKey = process.env.NINEROUTER_API_KEY;
+
+        let nineRouterProvider = await AIProvider.findOne({ name: '9router' });
+        if (!nineRouterProvider) {
+            nineRouterProvider = await AIProvider.create({
+                name: '9router',
+                type: 'openai',
+                baseUrl: 'https://9router.svr.quyit.id.vn/v1',
+                keyRotationStrategy: 'sequential'
+            });
+            logger.info('✅ Đã tạo AIProvider: 9router');
+        } else {
+            logger.info('ℹ️  AIProvider đã tồn tại: 9router');
+        }
+        nineRouterProviderId = nineRouterProvider._id;
+
+        if (nineRouterApiKey) {
+            const existingKey = await ProviderApiKey.findOne({ providerId: nineRouterProviderId, name: 'unit-test' });
+            if (!existingKey) {
+                await ProviderApiKey.create({ providerId: nineRouterProviderId, name: 'unit-test', key: nineRouterApiKey });
+                logger.info('✅ Đã thêm API key "unit-test" cho 9router');
+            } else {
+                logger.info('ℹ️  API key "unit-test" đã tồn tại cho 9router');
+            }
+        } else {
+            logger.warn('⚠️  Bỏ qua seed API key cho 9router: thiếu biến môi trường NINEROUTER_API_KEY');
         }
 
         // === Seed Default Models ===
@@ -78,6 +112,7 @@ async function seed() {
                 modelId: 'gemini-2.5-flash',
                 displayName: 'Gemini 2.5 Flash',
                 isDefault: false,
+                systemPrompt: 'Bạn là Kira Agent Platform, một trợ lý AI thông minh, thân thiện và hữu ích.',
                 parameters: { temperature: 0.7, maxOutputTokens: 65536 }
             },
             {
@@ -85,7 +120,17 @@ async function seed() {
                 modelId: 'gemini-2.5-pro',
                 displayName: 'Gemini 2.5 Pro',
                 isDefault: false,
+                systemPrompt: 'Bạn là Kira Agent Platform, một trợ lý AI thông minh, thân thiện và hữu ích.',
                 parameters: { temperature: 0.7, maxOutputTokens: 65536 }
+            },
+            {
+                category: 'text',
+                modelId: '9r-route-combo-free',
+                displayName: '9router - Combo Free',
+                isDefault: false,
+                systemPrompt: 'Bạn là Kira Agent Platform, một trợ lý AI thông minh, thân thiện và hữu ích.',
+                providerId: nineRouterProviderId,
+                parameters: { temperature: 0.7, maxOutputTokens: 4096 }
             },
 
 
@@ -95,6 +140,7 @@ async function seed() {
                 modelId: 'gemini-3.1-flash-image',
                 displayName: 'Gemini 3.1 Flash Image',
                 isDefault: true,
+                systemPrompt: 'Bạn là Kira Agent Platform, một trợ lý AI thông minh, thân thiện và hữu ích.',
                 parameters: { aspectRatio: '1:1' }
             },
             {
@@ -102,6 +148,7 @@ async function seed() {
                 modelId: 'gemini-3.1-flash-lite-image',
                 displayName: 'Gemini 3.1 Flash Lite Image',
                 isDefault: false,
+                systemPrompt: 'Bạn là Kira Agent Platform, một trợ lý AI thông minh, thân thiện và hữu ích.',
                 parameters: { aspectRatio: '1:1' }
             },
             {
@@ -116,6 +163,7 @@ async function seed() {
                 modelId: 'gemini-2.5-flash-image',
                 displayName: 'Gemini 2.5 Flash Image',
                 isDefault: false,
+                systemPrompt: 'Bạn là Kira Agent Platform, một trợ lý AI thông minh, thân thiện và hữu ích.',
                 parameters: { aspectRatio: '1:1' }
             },
 
@@ -181,9 +229,9 @@ async function seed() {
 
             if (!existing) {
                 await ModelConfig.create(model);
-                console.log(`✅ Đã tạo model: ${model.displayName} (${model.category})`);
+                logger.info(`✅ Đã tạo model: ${model.displayName} (${model.category})`);
             } else {
-                console.log(`ℹ️  Model đã tồn tại: ${model.displayName}`);
+                logger.info(`ℹ️  Model đã tồn tại: ${model.displayName}`);
             }
         }
 
@@ -287,13 +335,13 @@ async function seed() {
                 v,
                 { upsert: true, new: true }
             );
-            console.log(`✅ Đã seed giọng đọc: ${v.name} (${v.voiceId}) -> ${v.mappedTo}`);
+            logger.info(`✅ Đã seed giọng đọc: ${v.name} (${v.voiceId}) -> ${v.mappedTo}`);
         }
 
-        console.log('\n🎉 Seed hoàn tất!');
+        logger.info('🎉 Seed hoàn tất!');
         process.exit(0);
     } catch (error) {
-        console.error('❌ Lỗi seed:', error);
+        logger.error('❌ Lỗi seed:', error);
         process.exit(1);
     }
 }

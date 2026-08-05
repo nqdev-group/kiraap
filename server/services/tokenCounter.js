@@ -1,4 +1,5 @@
 const AILog = require('../models/AILog');
+const logger = require('@packages/logger/index.js');
 
 /**
  * Token Counter – Ước tính & ghi log token usage
@@ -56,7 +57,7 @@ class TokenCounter {
                 errorMessage: errorMessage || ''
             });
         } catch (error) {
-            console.error('Lỗi ghi AI log:', error);
+            logger.error('Lỗi ghi AI log:', error);
         }
     }
 }

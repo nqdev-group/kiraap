@@ -5,6 +5,7 @@ const apiKeyManager = require('./apiKeyManager');
 const tokenCounter = require('./tokenCounter');
 const ModelConfig = require('../models/ModelConfig');
 const Media = require('../models/Media');
+const aiProvidersBridge = require('@packages/ai-providers/services/agentPlatformBridge.js');
 
 /**
  * Agent Platform Service
@@ -48,7 +49,6 @@ class AgentPlatformService {
      */
     async generateText({ prompt, history = [], attachments = [], modelId, systemPrompt, user }) {
         const startTime = Date.now();
-        const apiKeyInfo = await apiKeyManager.getNextKey();
 
         // Lấy model config
         let model;
@@ -62,6 +62,13 @@ class AgentPlatformService {
             throw new Error('Không có model text nào được cấu hình');
         }
 
+        // === Custom AI Provider (OpenAI/Anthropic compatible) — xem packages/ai-providers/ ===
+        if (model.providerId) {
+            return aiProvidersBridge.generateText({ prompt, history, systemPrompt, model, user, startTime });
+        }
+
+        // === Google Agent Platform (mặc định, không đổi) ===
+        const apiKeyInfo = await apiKeyManager.getNextKey();
         const endpoint = `https://aiplatform.googleapis.com/v1/publishers/google/models/${model.modelId}:generateContent?key=${apiKeyInfo.key}`;
 
         // Xây dựng parts cho message cuối
@@ -162,8 +169,6 @@ class AgentPlatformService {
      * Trả về response stream để pipe trực tiếp đến client
      */
     async generateTextStream({ prompt, history = [], attachments = [], modelId, systemPrompt, user }) {
-        const apiKeyInfo = await apiKeyManager.getNextKey();
-
         let model;
         if (modelId) {
             model = await ModelConfig.findOne({ modelId, isActive: true });
@@ -174,6 +179,14 @@ class AgentPlatformService {
         if (!model) {
             throw new Error('Không có model text nào được cấu hình');
         }
+
+        // === Custom AI Provider (OpenAI/Anthropic compatible) — xem packages/ai-providers/ ===
+        if (model.providerId) {
+            return aiProvidersBridge.generateTextStream({ prompt, history, systemPrompt, model, user });
+        }
+
+        // === Google Agent Platform (mặc định, không đổi) ===
+        const apiKeyInfo = await apiKeyManager.getNextKey();
 
         const endpoint = `https://aiplatform.googleapis.com/v1/publishers/google/models/${model.modelId}:streamGenerateContent?alt=sse&key=${apiKeyInfo.key}`;
 
@@ -287,7 +300,6 @@ class AgentPlatformService {
      */
     async generateSingleImage({ prompt, refImages = [], refImageBase64, refImageMimeType, aspectRatio = '1:1', modelId, user }) {
         const startTime = Date.now();
-        const apiKeyInfo = await apiKeyManager.getNextKey();
 
         let model;
         if (modelId) {
@@ -300,6 +312,13 @@ class AgentPlatformService {
             throw new Error('Không có model image nào được cấu hình');
         }
 
+        // === Custom AI Provider (chỉ OpenAI-compatible hỗ trợ ảnh) — xem packages/ai-providers/ ===
+        if (model.providerId) {
+            return aiProvidersBridge.generateImage({ prompt, aspectRatio, model, user, startTime });
+        }
+
+        // === Google Agent Platform (mặc định, không đổi) ===
+        const apiKeyInfo = await apiKeyManager.getNextKey();
         const endpoint = `https://aiplatform.googleapis.com/v1/publishers/google/models/${model.modelId}:generateContent?key=${apiKeyInfo.key}`;
 
         const parts = [{ text: prompt }];

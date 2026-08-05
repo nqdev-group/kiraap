@@ -11,6 +11,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="/css/admin.css">
+    <link rel="stylesheet" href="/packages/ai-providers/admin-nav.css">
     <%- typeof extraCSS !== 'undefined' ? extraCSS : '' %>
 </head>
 <body class="admin-body">
@@ -55,6 +56,8 @@
                 <i class="fas fa-clipboard-list"></i>
                 <span>Nhật ký AI</span>
             </a>
+
+            <%- include('../../../packages/ai-providers/views/_admin-nav-group.ejs') %>
         </nav>
 
         <div class="sidebar-footer">

@@ -7,6 +7,7 @@ const tokenCounter = require('../../services/tokenCounter');
 const Conversation = require('../../models/Conversation');
 const Message = require('../../models/Message');
 const Media = require('../../models/Media');
+const logger = require('@packages/logger/index.js');
 
 const multer = require('multer');
 const fs = require('fs');
@@ -95,7 +96,7 @@ router.post('/', auth, aiLimiter, upload.single('refMedia'), async (req, res) =>
         });
 
     } catch (error) {
-        console.error('Video initiation error:', error);
+        logger.error('Video initiation error:', error);
         res.status(500).json({
             success: false,
             message: error.message || 'Lỗi khởi tạo tạo video'
@@ -174,7 +175,7 @@ router.post('/status', auth, async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Video polling error:', error);
+        logger.error('Video polling error:', error);
         res.status(500).json({
             success: false,
             message: error.message || 'Lỗi kiểm tra trạng thái video'

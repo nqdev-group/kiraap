@@ -1,4 +1,5 @@
 const ApiKey = require('../models/ApiKey');
+const logger = require('@packages/logger/index.js');
 
 /**
  * API Key Manager – Quản lý xoay vòng API Key
@@ -58,7 +59,7 @@ class ApiKeyManager {
         ApiKey.findByIdAndUpdate(selectedKey._id, {
             $inc: { usageCount: 1 },
             lastUsedAt: new Date()
-        }).catch(err => console.error('Lỗi cập nhật usage count:', err));
+        }).catch(err => logger.error('Lỗi cập nhật usage count:', err));
 
         return {
             key: selectedKey.key,

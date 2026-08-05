@@ -3,6 +3,7 @@ const router = express.Router();
 const auth = require('../../middleware/auth');
 const Conversation = require('../../models/Conversation');
 const Message = require('../../models/Message');
+const logger = require('@packages/logger/index.js');
 
 /**
  * GET /api/conversations
@@ -33,7 +34,7 @@ router.get('/', auth, async (req, res) => {
             }
         });
     } catch (error) {
-        console.error('Get conversations error:', error);
+        logger.error('Get conversations error:', error);
         res.status(500).json({
             success: false,
             message: 'Lỗi lấy danh sách hội thoại'
@@ -60,7 +61,7 @@ router.post('/', auth, async (req, res) => {
             data: { conversation }
         });
     } catch (error) {
-        console.error('Create conversation error:', error);
+        logger.error('Create conversation error:', error);
         res.status(500).json({
             success: false,
             message: 'Lỗi tạo hội thoại mới'
@@ -98,7 +99,7 @@ router.get('/:id/messages', auth, async (req, res) => {
             }
         });
     } catch (error) {
-        console.error('Get messages error:', error);
+        logger.error('Get messages error:', error);
         res.status(500).json({
             success: false,
             message: 'Lỗi lấy tin nhắn'
@@ -132,7 +133,7 @@ router.put('/:id', auth, async (req, res) => {
             data: { conversation }
         });
     } catch (error) {
-        console.error('Update conversation error:', error);
+        logger.error('Update conversation error:', error);
         res.status(500).json({
             success: false,
             message: 'Lỗi cập nhật hội thoại'
@@ -168,7 +169,7 @@ router.delete('/:id', auth, async (req, res) => {
             message: 'Đã xoá hội thoại'
         });
     } catch (error) {
-        console.error('Delete conversation error:', error);
+        logger.error('Delete conversation error:', error);
         res.status(500).json({
             success: false,
             message: 'Lỗi xoá hội thoại'

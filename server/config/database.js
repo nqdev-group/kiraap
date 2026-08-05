@@ -1,13 +1,6 @@
 const mongoose = require('mongoose');
+const { connectWithRetry } = require('@packages/mongo-connect-retry/index.js');
 
-const connectDB = async () => {
-    try {
-        const conn = await mongoose.connect(process.env.MONGODB_URI);
-        console.log(`✅ MongoDB đã kết nối: ${conn.connection.host}`);
-    } catch (error) {
-        console.error(`❌ Lỗi kết nối MongoDB: ${error.message}`);
-        process.exit(1);
-    }
-};
+const connectDB = () => connectWithRetry(mongoose, process.env.MONGODB_URI);
 
 module.exports = connectDB;

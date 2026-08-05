@@ -20,6 +20,11 @@ const modelConfigSchema = new mongoose.Schema({
         type: Boolean,
         default: false
     },
+    providerId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'AIProvider',
+        default: null
+    },
     isActive: {
         type: Boolean,
         default: true
