@@ -163,8 +163,44 @@ async function seed() {
             },
             {
                 category: 'text',
+                modelId: 'kira-mini-1.0',
+                displayName: 'Kira Mini 1.0 (Miễn phí)',
+                isDefault: false,
+                systemPrompt: 'Bạn là Kira Agent Platform, một trợ lý AI thông minh, thân thiện và hữu ích.',
+                providerId: kiraProviderId,
+                parameters: { temperature: 0.7, maxOutputTokens: 8192 }
+            },
+            {
+                category: 'text',
+                modelId: 'kira-3.5-pro',
+                displayName: 'Kira 3.5 Pro',
+                isDefault: false,
+                systemPrompt: 'Bạn là Kira Agent Platform, một trợ lý AI thông minh, thân thiện và hữu ích.',
+                providerId: kiraProviderId,
+                parameters: { temperature: 0.7, maxOutputTokens: 8192 }
+            },
+            {
+                category: 'text',
                 modelId: 'kira-3.5-flash',
                 displayName: 'Kira 3.5 Flash',
+                isDefault: false,
+                systemPrompt: 'Bạn là Kira Agent Platform, một trợ lý AI thông minh, thân thiện và hữu ích.',
+                providerId: kiraProviderId,
+                parameters: { temperature: 0.7, maxOutputTokens: 8192 }
+            },
+            {
+                category: 'text',
+                modelId: 'kira-2.5-pro',
+                displayName: 'Kira 2.5 Pro',
+                isDefault: false,
+                systemPrompt: 'Bạn là Kira Agent Platform, một trợ lý AI thông minh, thân thiện và hữu ích.',
+                providerId: kiraProviderId,
+                parameters: { temperature: 0.7, maxOutputTokens: 8192 }
+            },
+            {
+                category: 'text',
+                modelId: 'kira-2.5-flash',
+                displayName: 'Kira 2.5 Flash',
                 isDefault: false,
                 systemPrompt: 'Bạn là Kira Agent Platform, một trợ lý AI thông minh, thân thiện và hữu ích.',
                 providerId: kiraProviderId,
